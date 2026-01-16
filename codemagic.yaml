@@ -1,13 +1,20 @@
 workflows:
   flutter-android-release:
     name: Over the Bike Fit - Android Release Build
-    # ... 생략 ...
+    max_build_duration: 120
     instance_type: mac_mini_m2
-    
-    # 여기에 실제 프로젝트 폴더명을 입력하세요 (중요!)
-    working_directory: 프로젝트_폴더명 
+    # --- 이 부분이 핵심입니다 ---
+    # 만약 저장소 안의 폴더 이름이 Over_the_bike_fit 이라면 아래와 같이 적습니다.
+    working_directory: Over_the_bike_fit 
+
+    environment:
+      flutter: stable
 
     scripts:
       - name: Get Flutter dependencies
         script: flutter pub get
-      # ... 이하 동일 ...
+      - name: Build APK
+        script: flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk

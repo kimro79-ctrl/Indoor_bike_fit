@@ -10,7 +10,7 @@ workflows:
     environment:
       flutter: stable
     scripts:
-      - name: Setup Flutter SDK path
+      - name: Set up local.properties
         script: |
           echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
       - name: Install dependencies

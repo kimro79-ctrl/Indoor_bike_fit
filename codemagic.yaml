@@ -1,0 +1,23 @@
+workflows:
+  flutter-android-release:
+    name: Flutter Android Release Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+      cancel_previous_builds: true
+    environment:
+      flutter: stable
+    scripts:
+      - name: Setup Flutter SDK path
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Install dependencies
+        script: flutter pub get
+      - name: Build release APK
+        script: flutter build apk --release
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+      - flutter_driver.log

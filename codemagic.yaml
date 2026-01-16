@@ -1,18 +1,30 @@
 workflows:
   flutter-android:
-    name: Bike Fit Build
+    name: Bike Fit Build Final
     instance_type: mac_mini_m2
     max_build_duration: 120
     environment:
       flutter: stable
     scripts:
-      - name: Build APK
+      - name: 프로젝트 준비 및 이미지 배치
         script: |
+          # 1. 소스 코드 압축 해제
           unzip *.zip
-          PROJ_PATH=$(find . -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
+          PROJ_PATH=$(find . -maxdepth 2 -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
           cd "$PROJ_PATH"
+          
+          # 2. assets 폴더 생성 및 이미지 복사
+          mkdir -p assets
+          cp ../assets_final/*.png ./assets/ 2>/dev/null || cp ../assets/*.png ./assets/ 2>/dev/null || true
+          
+          # 3. 안드로이드 설정 복구 및 패키지 설치
           flutter create . --platforms android
           flutter pub get
+          
+      - name: Build APK
+        script: |
+          PROJ_PATH=$(find . -maxdepth 2 -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
+          cd "$PROJ_PATH"
           flutter build apk --release
     artifacts:
       - "**/build/app/outputs/flutter-apk/app-release.apk"

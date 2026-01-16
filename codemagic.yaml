@@ -3,30 +3,22 @@ workflows:
     name: Over the Bike Fit - Android Release Build
     max_build_duration: 120
     instance_type: mac_mini_m2
-
     environment:
       flutter: stable
-
     scripts:
-      - name: 압축 해제 및 안드로이드 설정 복구
+      - name: Prepare Project
         script: |
           unzip *.zip
           PROJECT_DIR=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
           cd "$PROJECT_DIR"
-          
-          # 빌드 환경 자동 복구
           flutter create . --platforms android
           flutter pub get
-          
       - name: Build APK
         script: |
           PROJECT_DIR=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
           cd "$PROJECT_DIR"
-          
-          # 빌드 전 청소 및 릴리스 빌드
           flutter clean
           flutter pub get
           flutter build apk --release
-
     artifacts:
       - "**/build/app/outputs/flutter-apk/app-release.apk"

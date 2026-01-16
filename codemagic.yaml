@@ -1,24 +1,22 @@
 workflows:
   flutter-android-release:
-    name: Over the Bike Fit - Android Release Build
+    name: Bike Fit Build
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
       flutter: stable
     scripts:
-      - name: Prepare Project
+      - name: Setup
         script: |
           unzip *.zip
-          PROJECT_DIR=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
-          cd "$PROJECT_DIR"
+          PROJ=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
+          cd "$PROJ"
           flutter create . --platforms android
           flutter pub get
-      - name: Build APK
+      - name: Build
         script: |
-          PROJECT_DIR=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
-          cd "$PROJECT_DIR"
-          flutter clean
-          flutter pub get
+          PROJ=$(find . -maxdepth 1 -type d -not -path '.*' | head -n 1)
+          cd "$PROJ"
           flutter build apk --release
     artifacts:
       - "**/build/app/outputs/flutter-apk/app-release.apk"

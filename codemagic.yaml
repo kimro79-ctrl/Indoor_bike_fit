@@ -1,12 +1,15 @@
 workflows:
   android-workflow:
     name: Android Release Build
-    # 마침표(.)는 저장소의 최상단(루트) 폴더를 의미합니다.
     working_directory: . 
     environment:
       flutter: stable
       java: 17
     scripts:
+      - name: Create Flutter project structure
+        script: |
+          # 현재 폴더에 안드로이드 빌드에 필요한 파일들을 강제로 생성합니다.
+          flutter create --platforms android .
       - name: Get Flutter packages
         script: |
           flutter pub get

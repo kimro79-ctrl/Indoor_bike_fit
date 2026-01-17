@@ -1,4 +1,5 @@
 name: over_the_bike_fit
+description: Cycling app with neon design and charts.
 version: 1.0.0+1
 environment:
   sdk: '>=3.0.0 <4.0.0'

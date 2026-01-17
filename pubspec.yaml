@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: Cycling app with neon design and charts.
+description: Cycling app with neon design, real-time charts, and watch sync.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,8 +10,14 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
+
+  # 실시간 심박수 그래프 라이브러리
   fl_chart: ^0.66.0
-  health: ^9.1.0  # 빌드 에러 해결을 위해 버전을 낮췄습니다.
+
+  # 스마트 워치 연동을 위한 최신 버전 (빌드 에러 방지)
+  health: ^13.2.1
+
+  # 권한 요청 라이브러리
   permission_handler: ^11.0.0
 
 dev_dependencies:
@@ -21,6 +27,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # 에셋 경로 설정 (GitHub 폴더 구조와 일치해야 함)
   assets:
     - assets/background.png
     - assets/icon/heart.png

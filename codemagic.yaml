@@ -6,15 +6,16 @@ workflows:
       flutter: stable
       java: 17
     scripts:
-      - name: Create Flutter project structure
+      - name: Clean and Recreate Android Folder
         script: |
-          # 현재 폴더에 안드로이드 빌드에 필요한 파일들을 강제로 생성합니다.
+          # 기존 꼬인 설정을 삭제하고 안드로이드 빌드 환경을 강제 생성합니다.
+          rm -rf android
           flutter create --platforms android .
       - name: Get Flutter packages
         script: |
           flutter pub get
       - name: Build APK
         script: |
-          flutter build apk --release
+          flutter build apk --release --clean
     artifacts:
       - build/app/outputs/flutter-apk/*.apk

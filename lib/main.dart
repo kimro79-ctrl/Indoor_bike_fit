@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
-import 'package:fl_chart/fl_chart.dart'; // 그래프 추가
+import 'package:fl_chart/fl_chart.dart';
 
 void main() {
   runApp(const OverTheBikeFit());
@@ -31,14 +31,13 @@ class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
   bool isRunning = false;
   int seconds = 0;
   double heartRate = 98;
-  List<FlSpot> hrPoints = []; // 그래프 데이터 점
+  List<FlSpot> hrPoints = [];
   int timerCount = 0;
   Timer? timer;
 
   @override
   void initState() {
     super.initState();
-    // 초기 그래프 데이터 생성
     for (int i = 0; i < 10; i++) {
       hrPoints.add(FlSpot(i.toDouble(), 90 + Random().nextDouble() * 10));
     }
@@ -55,31 +54,13 @@ class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
           setState(() {
             seconds++;
             timerCount++;
-            // 실시간 심박수 데이터 생성 및 그래프 업데이트
             heartRate = 95 + Random().nextDouble() * 15;
             hrPoints.add(FlSpot(timerCount.toDouble() + 10, heartRate));
-            if (hrPoints.length > 20) hrPoints.removeAt(0); // 그래프가 옆으로 흐르게 함
+            if (hrPoints.length > 20) hrPoints.removeAt(0);
           });
         });
       }
     });
-  }
-
-  // 스마트 워치 동기화 시뮬레이션
-  Future<void> syncWithWatch() async {
-    showDialog(
-      context: context,
-      builder: (context) => const AlertDialog(
-        backgroundColor: Colors.black87,
-        title: Text("워치 동기화", style: TextStyle(color: Colors.redAccent)),
-        content: Text("스마트 워치에서 심박수 데이터를 가져오는 중입니다..."),
-      ),
-    );
-    await Future.delayed(const Duration(seconds: 2));
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('삼성 헬스/애플 건강 데이터와 동기화되었습니다.'))
-    );
   }
 
   @override
@@ -94,9 +75,8 @@ class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
           child: Column(
             children: [
               _buildHeader(),
-              const SizedBox(height: 10),
-              _buildHeartRateCard(), // 심박수 + 그래프
-              const Expanded(child: SizedBox()), // 공간 확보
+              _buildHeartRateCard(),
+              const Expanded(child: SizedBox()),
               _buildInfoRow(),
               _buildActionButtons(),
             ],
@@ -106,25 +86,13 @@ class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
     );
   }
 
-  // 상단 헤더 및 동기화 버튼
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('CYCLE FIT', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-          IconButton(
-            icon: const Icon(Icons.watch, color: Colors.white),
-            onPressed: syncWithWatch,
-            tooltip: '스마트 워치 동기화',
-          )
-        ],
-      ),
+    return const Padding(
+      padding: EdgeInsets.all(20),
+      child: Text('CYCLE FIT', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.redAccent)),
     );
   }
 
-  // 심박수 그래프 카드
   Widget _buildHeartRateCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -157,7 +125,6 @@ class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
                     isCurved: true,
                     color: Colors.redAccent,
                     barWidth: 3,
-                    isStrokeCapRound: true,
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: true, color: Colors.redAccent.withOpacity(0.2)),
                   ),

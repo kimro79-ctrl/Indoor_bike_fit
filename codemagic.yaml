@@ -1,26 +1,19 @@
 workflows:
-  default-workflow:
-    name: Bike Fit Final Build
-    instance_type: mac_mini_m2
-    max_build_duration: 120
+  android-workflow:
+    name: Android Release Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
     environment:
       flutter: stable
+      java: 17
     scripts:
-      - name: Setup and Assets
-        script: |
-          unzip *.zip
-          PROJ=$(find . -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
-          cd "$PROJ"
-          # 이미지 자동 배치 (새로 올린 파일들 적용)
-          mkdir -p assets
-          cp ../assets_final/*.png ./assets/ 2>/dev/null || cp ../assets/*.png ./assets/ 2>/dev/null || true
-          # 안드로이드 설정 복구
-          flutter create . --platforms android
-          flutter pub get
+      - name: Get Flutter packages
+        script: flutter pub get
       - name: Build APK
-        script: |
-          PROJ=$(find . -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
-          cd "$PROJ"
-          flutter build apk --release
+        script: flutter build apk --release
     artifacts:
-      - "**/build/app/outputs/flutter-apk/app-release.apk"
+      - build/app/outputs/flutter-apk/*.apk
+    publishing:
+      email:
+        recipients:
+          - YOUR_EMAIL@example.com # 본인 이메일로 수정

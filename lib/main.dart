@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math';
+import 'package:fl_chart/fl_chart.dart'; // 그래프 추가
 
 void main() {
   runApp(const OverTheBikeFit());
@@ -12,35 +14,72 @@ class OverTheBikeFit extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black,
-        primaryColor: Colors.red,
-      ),
-      home: const SplashScreen(),
+      theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: Colors.black),
+      home: const CyclingHomeScreen(),
     );
   }
 }
 
-// 1. 스플래시 화면 (네온 디자인 반영)
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class CyclingHomeScreen extends StatefulWidget {
+  const CyclingHomeScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<CyclingHomeScreen> createState() => _CyclingHomeScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _CyclingHomeScreenState extends State<CyclingHomeScreen> {
+  bool isRunning = false;
+  int seconds = 0;
+  double heartRate = 98;
+  List<FlSpot> hrPoints = []; // 그래프 데이터 점
+  int timerCount = 0;
+  Timer? timer;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+    // 초기 그래프 데이터 생성
+    for (int i = 0; i < 10; i++) {
+      hrPoints.add(FlSpot(i.toDouble(), 90 + Random().nextDouble() * 10));
+    }
+  }
+
+  void toggleTimer() {
+    setState(() {
+      if (isRunning) {
+        timer?.cancel();
+        isRunning = false;
+      } else {
+        isRunning = true;
+        timer = Timer.periodic(const Duration(seconds: 1), (t) {
+          setState(() {
+            seconds++;
+            timerCount++;
+            // 실시간 심박수 데이터 생성 및 그래프 업데이트
+            heartRate = 95 + Random().nextDouble() * 15;
+            hrPoints.add(FlSpot(timerCount.toDouble() + 10, heartRate));
+            if (hrPoints.length > 20) hrPoints.removeAt(0); // 그래프가 옆으로 흐르게 함
+          });
+        });
       }
     });
+  }
+
+  // 스마트 워치 동기화 시뮬레이션
+  Future<void> syncWithWatch() async {
+    showDialog(
+      context: context,
+      builder: (context) => const AlertDialog(
+        backgroundColor: Colors.black87,
+        title: Text("워치 동기화", style: TextStyle(color: Colors.redAccent)),
+        content: Text("스마트 워치에서 심박수 데이터를 가져오는 중입니다..."),
+      ),
+    );
+    await Future.delayed(const Duration(seconds: 2));
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('삼성 헬스/애플 건강 데이터와 동기화되었습니다.'))
+    );
   }
 
   @override
@@ -49,161 +88,128 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            colors: [Color(0xFF4A0000), Colors.black],
-            center: Alignment.center,
-            radius: 1.0,
-          ),
+          image: DecorationImage(image: AssetImage('assets/background.png'), fit: BoxFit.cover),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 네온 자전거 이미지 (기존 이미지 활용)
-            Image.asset('assets/icon/bike_ui_dark.png', width: 200),
-            const SizedBox(height: 40),
-            const Text(
-              'Over the Bike Fit',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 1.2,
-                shadows: [
-                  Shadow(color: Colors.red, blurRadius: 10),
-                ],
-              ),
-            ),
-          ],
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 10),
+              _buildHeartRateCard(), // 심박수 + 그래프
+              const Expanded(child: SizedBox()), // 공간 확보
+              _buildInfoRow(),
+              _buildActionButtons(),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-// 2. 홈 화면 (이미지 UI 재현)
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const Icon(Icons.arrow_back_ios_new, size: 20),
-        title: const Text('홈 화면', style: TextStyle(fontSize: 18)),
-        centerTitle: true,
+  // 상단 헤더 및 동기화 버튼
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('CYCLE FIT', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+          IconButton(
+            icon: const Icon(Icons.watch, color: Colors.white),
+            onPressed: syncWithWatch,
+            tooltip: '스마트 워치 동기화',
+          )
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            // 심박수 섹션 (네온 테두리)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(color: Colors.red.withOpacity(0.1), blurRadius: 10),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Image.asset('assets/icon/heart.png', width: 40),
-                  const SizedBox(width: 15),
-                  const Text('신박수', style: TextStyle(fontSize: 18, color: Colors.white70)),
-                  const Spacer(),
-                  const Text(
-                    '98 bpm',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.redAccent),
+    );
+  }
+
+  // 심박수 그래프 카드
+  Widget _buildHeartRateCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("심박수 실시간 그래프", style: TextStyle(color: Colors.white70)),
+              Text("${heartRate.toInt()} bpm", style: const TextStyle(fontSize: 24, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: hrPoints,
+                    isCurved: true,
+                    color: Colors.redAccent,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: true, color: Colors.redAccent.withOpacity(0.2)),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
-            // 중앙 자전거 아이콘
-            Expanded(
-              child: Center(
-                child: Opacity(
-                  opacity: 0.8,
-                  child: Image.asset('assets/icon/bike_ui_dark.png', width: 250),
-                ),
-              ),
-            ),
-            // 기록 섹션 (운동시간, 목표)
-            Row(
-              children: [
-                _buildInfoCard('운동시간', '00:15', Icons.access_time, Colors.orangeAccent),
-                const SizedBox(width: 15),
-                _buildInfoCard('목표', '20분', Icons.flag, Colors.white),
-              ],
-            ),
-            const SizedBox(height: 30),
-            // 하단 컨트롤 버튼
-            Row(
-              children: [
-                _buildActionButton('정지', Colors.red.shade900),
-                const SizedBox(width: 10),
-                _buildActionButton('리셋', Colors.grey.shade800),
-                const SizedBox(width: 10),
-                _buildActionButton('저장', const Color(0xFF0F3D0F)),
-              ],
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 정보 카드 위젯
-  Widget _buildInfoCard(String title, String value, IconData icon, Color valColor) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 16, color: Colors.white54),
-                const SizedBox(width: 5),
-                Text(title, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: valColor),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 하단 버튼 위젯
-  Widget _buildActionButton(String label, Color color) {
-    return Expanded(
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
-        ),
+        ],
       ),
     );
   }
+
+  Widget _buildInfoRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          _infoBox('운동시간', _formatTime(seconds), Colors.redAccent),
+          const SizedBox(width: 15),
+          _infoBox('목표', '20분', Colors.white),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          _btn(isRunning ? '정지' : '시작', isRunning ? Colors.red[900]! : Colors.red, toggleTimer),
+          const SizedBox(width: 10),
+          _btn('리셋', Colors.grey[800]!, () {
+            timer?.cancel();
+            setState(() { isRunning = false; seconds = 0; timerCount = 0; hrPoints.clear(); });
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoBox(String t, String v, Color c) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(15)),
+      child: Column(children: [Text(t, style: const TextStyle(color: Colors.white54)), Text(v, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: c))]),
+    ),
+  );
+
+  Widget _btn(String l, Color c, VoidCallback o) => Expanded(
+    child: ElevatedButton(onPressed: o, style: ElevatedButton.styleFrom(backgroundColor: c, padding: const EdgeInsets.symmetric(vertical: 15)), child: Text(l)),
+  );
+
+  String _formatTime(int s) => '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 }

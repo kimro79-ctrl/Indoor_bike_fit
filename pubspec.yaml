@@ -20,6 +20,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/background.png
-    - assets/icons/heart.png
-    - assets/icons/bike_ui_dark.png
+    - assets/icon/heart.png
+    - assets/icon/bike_ui_dark.png
     - assets/splash/splash_screen.png

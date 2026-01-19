@@ -94,13 +94,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover)),
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("assets/background.png"), 
+            fit: BoxFit.cover
+          )
+        ),
         child: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 10),
               const Text("OVER THE BIKE FIT", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 4, fontStyle: FontStyle.italic)),
               
+              // 워치 상태바
               GestureDetector(
                 onTap: _connectWatch,
                 child: Container(
@@ -111,9 +117,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
               ),
 
-              // [수정] 슬림해진 가로형 배너 (심박수 숫자 + 그래프 합체)
+              // 상단 슬림 배너 (심박수 숫자 + 그래프 가로 배치)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 30, vertical: 5),
+                margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 5),
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.6), 
@@ -137,8 +143,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 15),
-                    // 슬림 그래프 영역
+                    const SizedBox(width: 20),
+                    // 미니 그래프
                     Expanded(
                       child: SizedBox(
                         height: 45, 
@@ -161,10 +167,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
               ),
 
-              const Spacer(), // 이 공간이 넓어져서 자전거 배경이 잘 보입니다.
+              const Spacer(), // 배경 이미지를 위한 여백 공간
 
+              // 하단 정보 영역
               Container(
-                padding: const EdgeInsets.only(bottom: 30),
+                padding: const EdgeInsets.only(bottom: 20),
                 child: Column(
                   children: [
                     Row(
@@ -175,8 +182,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    // 버튼 3개 배치 (시작/정지, 저장, 기록)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
                       child: Row(
                         children: [
                           _btn(isRunning ? "정지" : "시작", isRunning ? Colors.grey : Colors.redAccent, () {
@@ -186,58 +194,4 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               else workoutTimer?.cancel();
                             });
                           }),
-                          const SizedBox(width: 10),
-                          _btn("저장", Colors.green, () {
-                            if (elapsedSeconds > 0) {
-                              workoutLogs.add({"date": "${DateTime.now().month}/${DateTime.now().day}", "time": "${elapsedSeconds ~/ 60}분", "maxBpm": "$bpm"});
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("운동 기록 저장됨")));
-                            }
-                          }),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _infoBox(String label, String value, Color color) => Column(children: [Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)), Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: color))]);
-  
-  Widget _targetBox() => Column(children: [
-    const Text("목표설정", style: TextStyle(fontSize: 11, color: Colors.grey)),
-    Row(children: [
-      IconButton(onPressed: () => setState(() { if (targetMinutes > 1) targetMinutes--; }), icon: const Icon(Icons.remove_circle_outline, size: 20)),
-      Text("$targetMinutes분", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-      IconButton(onPressed: () => setState(() { targetMinutes++; }), icon: const Icon(Icons.add_circle_outline, size: 20)),
-    ])
-  ]);
-
-  Widget _btn(String text, Color color, VoidCallback onTap) => Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), onPressed: onTap, child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold))));
-}
-
-// 기록 페이지
-class HistoryPage extends StatelessWidget {
-  final List<Map<String, dynamic>> logs;
-  const HistoryPage({super.key, required this.logs});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("기록 내역"), backgroundColor: Colors.black),
-      body: logs.isEmpty 
-        ? const Center(child: Text("기록이 없습니다."))
-        : ListView.builder(
-            itemCount: logs.length,
-            itemBuilder: (context, index) => ListTile(
-              leading: const Icon(Icons.directions_bike, color: Color(0xFF00E5FF)),
-              title: Text("${logs[index]['date']} 운동"),
-              subtitle: Text("시간: ${logs[index]['time']} | 최고 심박수: ${logs[index]['maxBpm']} BPM"),
-            ),
-          ),
-    );
-  }
-}
+                          const SizedBox(width

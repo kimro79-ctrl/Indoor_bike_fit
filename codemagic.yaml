@@ -1,6 +1,6 @@
 workflows:
-  bike_fit:  # ← 키 이름을 bike-fit-build 대신 bike_fit으로 단순화 (하이픈 제거 추천)
-    name: Over The Bike Fit - Android Build
+  over_the_bike_fit:               # ← 이 이름으로 바꾸면 프로젝트 이름과 딱 맞아서 인식률 최고
+    name: Over The Bike Fit Build
     instance_type: mac_mini_m2
     max_build_duration: 45
 
@@ -8,38 +8,24 @@ workflows:
       flutter: stable
 
     scripts:
-      - name: Install dependencies
-        script: flutter pub get
+      - flutter pub get
 
-      - name: Force Gradle 8.5 declarative mode (no android folder needed)
-        script: |
-          mkdir -p android/gradle/wrapper
-          echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionPath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" >> android/gradle/wrapper/gradle-wrapper.properties
+      - |
+        # Gradle 강제 호환 (android 폴더 없이 해결)
+        mkdir -p android/gradle/wrapper
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" > android/gradle/wrapper/gradle-wrapper.properties
+        echo "flutter.sdk=$HOME/programs/flutter" > android/local.properties
 
-          echo "flutter.sdk=$HOME/programs/flutter" > android/local.properties
-          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
-
-      - name: Clean and rebuild
-        script: flutter clean && flutter pub get
-
-      - name: Build APK release
-        script: flutter build apk --release --split-per-abi
-
-      - name: Build App Bundle (AAB)
-        script: flutter build appbundle --release
+      - flutter clean
+      - flutter build apk --release --split-per-abi
 
     artifacts:
       - build/**/outputs/**/*.apk
-      - build/**/outputs/**/*.aab
 
     publishing:
       email:
         recipients:
-          - your@email.com   # 실제 이메일로 교체
+          - your@email.com
         notify:
           success: true
           failure: true

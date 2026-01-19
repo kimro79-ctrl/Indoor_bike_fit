@@ -1,35 +1,31 @@
 workflows:
-  bike-fit-build-and-deploy:
-    name: BikeFit - Build & Deploy
-    instance_type: mac_mini_m2   # 2026년 기준 가장 비용효율 좋음
+  bike-fit-build:
+    name: BikeFit - Build Only
+    instance_type: mac_mini_m2
     max_build_duration: 40
-    integrations:
-      app_store_connect: YOUR_APP_STORE_CONNECT_KEY      # Codemagic에 미리 등록
-      google_play: YOUR_GOOGLE_PLAY_SERVICE_ACCOUNT_KEY  # Codemagic에 미리 등록
 
     environment:
-      flutter: stable            # 또는 특정 버전: 3.24.x
+      flutter: stable
       xcode: latest
-      groups:
-        - app_credentials        # Codemagic 환경변수 그룹 (키체인, 프로비저닝 등)
 
     scripts:
-      - name: Get Flutter packages
-        script: |
-          flutter pub get
+      - name: Get dependencies
+        script: flutter pub get
 
-      - name: Build Android APK (release)
-        script: |
-          flutter build apk --release --split-per-abi
+      - name: Build Android APK
+        script: flutter build apk --release --split-per-abi
 
-      - name: Build iOS archive
-        script: |
-          flutter build ipa --release --export-options-plist=ios/exportOptions.plist
+      - name: Build Android App Bundle
+        script: flutter build appbundle --release
+
+      - name: Build iOS IPA
+        script: flutter build ipa --release --export-options-plist=ios/exportOptions.plist
 
     artifacts:
       - build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.aab
       - build/ios/ipa/*.ipa
-      - build/ios/ipa/*.dSYM.zip   # 디버깅용
+      - build/ios/ipa/*.dSYM.zip
 
     publishing:
       email:
@@ -38,18 +34,3 @@ workflows:
         notify:
           success: true
           failure: true
-
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        apple_id: YOUR_APPLE_ID
-        app_name: "Over The Bike Fit"
-
-      google_play:
-        auth: integration
-        track: internal          # 또는 alpha, beta, production
-        package_name: com.yourcompany.bikefit
-
-      scripts:
-        - name: Post-publish notification (optional)
-          script: echo "빌드 완료! 테스트플라이트 / 내부 테스트 배포됨"

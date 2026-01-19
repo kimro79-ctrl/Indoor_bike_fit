@@ -34,7 +34,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int elapsedSeconds = 0;
   bool isRunning = false;
   String watchStatus = "탭하여 워치 연결";
-  List<FlSpot> heartRateSpots = []; // 그래프용 데이터 리스트
+  List<FlSpot> heartRateSpots = []; // 그래프 데이터 리스트
   static List<Map<String, dynamic>> workoutLogs = []; 
   
   BluetoothDevice? connectedDevice;
@@ -48,11 +48,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _connectWatch() async {
-    setState(() => watchStatus = "기기 검색 중...");
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+    setState(() => watchStatus = "워치 찾는 중...");
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
     FlutterBluePlus.scanResults.listen((results) async {
       for (ScanResult r in results) {
-        if (connectedDevice == null && (r.device.platformName.isNotEmpty || r.advertisementData.serviceUuids.contains(Guid("180d")))) {
+        String name = r.device.platformName.toLowerCase();
+        if (connectedDevice == null && (name.contains("amazfit") || r.advertisementData.serviceUuids.contains(Guid("180d")))) {
           await FlutterBluePlus.stopScan();
           _establishConnection(r.device);
           break;
@@ -75,10 +76,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 if (value.isNotEmpty && mounted) {
                   setState(() {
                     bpm = value[1];
-                    if (isRunning) {
-                      heartRateSpots.add(FlSpot(elapsedSeconds.toDouble(), bpm.toDouble()));
-                      if (heartRateSpots.length > 50) heartRateSpots.removeAt(0);
-                    }
+                    // 심박수 데이터가 들어오면 그래프에 추가 (최대 50개 유지)
+                    heartRateSpots.add(FlSpot(heartRateSpots.length.toDouble(), bpm.toDouble()));
+                    if (heartRateSpots.length > 50) heartRateSpots.removeAt(0);
                   });
                 }
               });
@@ -100,49 +100,56 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               const SizedBox(height: 30),
               const Text("OVER THE BIKE FIT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 4, fontStyle: FontStyle.italic)),
               
-              GestureDetector(
-                onTap: _connectWatch,
-                child: Container(
-                  margin: const EdgeInsets.only(top: 15),
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), border: Border.all(color: connectedDevice != null ? Colors.greenAccent : Colors.redAccent.withOpacity(0.5)), borderRadius: BorderRadius.circular(20)),
-                  child: Text(watchStatus, style: TextStyle(fontSize: 12, color: connectedDevice != null ? Colors.greenAccent : Colors.white)),
-                ),
+              // 워치 상태 표시창
+              Container(
+                margin: const EdgeInsets.only(top: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                decoration: BoxDecoration(color: Colors.black54, border: Border.all(color: connectedDevice != null ? Colors.greenAccent : Colors.redAccent), borderRadius: BorderRadius.circular(25)),
+                child: Text(watchStatus, style: TextStyle(fontSize: 13, color: connectedDevice != null ? Colors.greenAccent : Colors.white)),
               ),
 
               const Spacer(),
-              // 실시간 심박수 및 그래프 영역
+              // 실시간 심박수 숫자 및 네온 그래프
               if (bpm > 0) ...[
-                Text("$bpm", style: const TextStyle(fontSize: 90, fontWeight: FontWeight.bold)),
-                const Text("BPM", style: TextStyle(color: Colors.redAccent, letterSpacing: 5)),
-                const SizedBox(height: 20),
+                Text("$bpm", style: const TextStyle(fontSize: 100, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text("BPM", style: TextStyle(color: Colors.redAccent, letterSpacing: 8, fontSize: 16)),
+                const SizedBox(height: 30),
+                // 그래프 영역
                 SizedBox(
-                  height: 120,
-                  width: double.infinity,
+                  height: 150,
+                  width: MediaQuery.of(context).size.width * 0.85,
                   child: LineChart(LineChartData(
                     gridData: const FlGridData(show: false),
                     titlesData: const FlTitlesData(show: false),
                     borderData: FlBorderData(show: false),
-                    lineBarsData: [LineChartBarData(spots: heartRateSpots, isCurved: true, color: Colors.redAccent, barWidth: 3, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true, color: Colors.redAccent.withOpacity(0.1)))]
+                    lineBarsData: [LineChartBarData(
+                      spots: heartRateSpots,
+                      isCurved: true,
+                      color: Colors.redAccent,
+                      barWidth: 4,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(show: true, color: Colors.redAccent.withOpacity(0.2))
+                    )]
                   )),
                 ),
               ] else ...[
-                const Icon(Icons.favorite_outline, size: 80, color: Colors.white10),
+                const Icon(Icons.favorite_border, size: 100, color: Colors.white12),
+                const Text("데이터 수신 대기 중...", style: TextStyle(color: Colors.white24)),
               ],
               const Spacer(),
 
-              // 운동 정보 & 시간 조절 (버튼 부활)
+              // 운동 정보 및 시간 조절
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Column(children: [const Text("운동시간", style: TextStyle(fontSize: 12, color: Colors.grey)), Text("${(elapsedSeconds ~/ 60).toString().padLeft(2, '0')}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.redAccent))]),
+                  Column(children: [const Text("운동시간", style: TextStyle(fontSize: 12, color: Colors.grey)), Text("${(elapsedSeconds ~/ 60).toString().padLeft(2, '0')}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.redAccent))]),
                   Column(
                     children: [
                       const Text("목표시간", style: TextStyle(fontSize: 12, color: Colors.grey)),
                       Row(children: [
-                        IconButton(onPressed: () => setState(() { if (targetMinutes > 1) targetMinutes--; }), icon: const Icon(Icons.remove_circle_outline, color: Colors.white54)),
-                        Text("$targetMinutes분", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                        IconButton(onPressed: () => setState(() { targetMinutes++; }), icon: const Icon(Icons.add_circle_outline, color: Colors.white54)),
+                        IconButton(onPressed: () => setState(() { if (targetMinutes > 1) targetMinutes--; }), icon: const Icon(Icons.remove_circle_outline)),
+                        Text("$targetMinutes분", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                        IconButton(onPressed: () => setState(() { targetMinutes++; }), icon: const Icon(Icons.add_circle_outline)),
                       ]),
                     ],
                   ),
@@ -150,25 +157,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               const SizedBox(height: 30),
 
-              // 하단 버튼 1:1:1
+              // 제어 버튼
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 50),
                 child: Row(children: [
                   Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(vertical: 18)), onPressed: () {
                     setState(() { isRunning = !isRunning; if (isRunning) workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => elapsedSeconds++)); else workoutTimer?.cancel(); });
-                  }, child: Text(isRunning ? "정지" : "시작", style: const TextStyle(fontWeight: FontWeight.bold)))),
+                  }, child: Text(isRunning ? "정지" : "시작", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green.withOpacity(0.8), padding: const EdgeInsets.symmetric(vertical: 18)), onPressed: () {
+                  Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 18)), onPressed: () {
                     if (elapsedSeconds > 0) {
                       workoutLogs.add({"date": "${DateTime.now().month}/${DateTime.now().day}", "time": "${elapsedSeconds ~/ 60}분", "maxBpm": "$bpm"});
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("운동 기록이 성공적으로 저장되었습니다.")));
-                      setState(() { isRunning = false; workoutTimer?.cancel(); elapsedSeconds = 0; heartRateSpots.clear(); });
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("기록 저장됨")));
                     }
-                  }, child: const Text("저장", style: TextStyle(fontWeight: FontWeight.bold)))),
+                  }, child: const Text("저장", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                   const SizedBox(width: 10),
                   Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, padding: const EdgeInsets.symmetric(vertical: 18)), onPressed: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => HistoryPage(logs: workoutLogs)));
-                  }, child: const Text("기록", style: TextStyle(fontWeight: FontWeight.bold)))),
+                  }, child: const Text("기록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                 ]),
               )
             ],
@@ -185,16 +191,15 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("나의 운동 기록"), backgroundColor: Colors.black),
+      appBar: AppBar(title: const Text("운동 히스토리"), backgroundColor: Colors.black),
       body: logs.isEmpty 
-        ? const Center(child: Text("아직 저장된 운동 기록이 없습니다."))
+        ? const Center(child: Text("기록이 없습니다."))
         : ListView.builder(
             itemCount: logs.length,
             itemBuilder: (context, index) => ListTile(
-              leading: const Icon(Icons.pedal_bike, color: Colors.redAccent),
-              title: Text("${logs[index]['date']} 라이딩"),
+              leading: const Icon(Icons.directions_bike, color: Colors.redAccent),
+              title: Text("${logs[index]['date']} 운동"),
               subtitle: Text("시간: ${logs[index]['time']} | 최고 심박수: ${logs[index]['maxBpm']} BPM"),
-              trailing: const Icon(Icons.chevron_right, color: Colors.white24),
             ),
           ),
     );

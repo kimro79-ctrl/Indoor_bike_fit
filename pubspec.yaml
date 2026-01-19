@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: Premium bike fitness app.
+description: Final version with graph and watch connectivity.
 version: 1.0.0+1
 
 environment:
@@ -11,6 +11,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   flutter_native_splash: ^2.3.1
   flutter_blue_plus: ^1.31.1
+  fl_chart: ^0.66.0 # 데이터 시각화 그래프 라이브러리 추가
 
 dev_dependencies:
   flutter_test:
@@ -21,3 +22,12 @@ flutter:
   assets:
     - assets/background.png
     - assets/splash/splash_screen.png
+
+flutter_native_splash:
+  color: "#000000"
+  image: assets/splash/splash_screen.png
+  android_12:
+    image: assets/splash/splash_screen.png
+    color: "#000000"
+  fullscreen: true
+  android_gravity: fill

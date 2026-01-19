@@ -27,8 +27,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   int targetMinutes = 20;
   int elapsedSeconds = 0;
   bool isRunning = false;
-  List<double> heartPoints = List.generate(50, (index) => 40.0);
-  List<String> workoutHistory = []; // 운동 기록 저장소
+  List<double> heartPoints = List.generate(50, (index) => 30.0);
+  List<String> workoutHistory = []; 
   
   Timer? dataTimer;
   Timer? workoutTimer;
@@ -44,7 +44,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (mounted) {
         setState(() {
           bpm = 95 + Random().nextInt(15);
-          heartPoints.add(Random().nextDouble() * 50); // 더 역동적인 변화
+          heartPoints.add(Random().nextDouble() * 50); 
           heartPoints.removeAt(0);
         });
       }
@@ -63,10 +63,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void saveRecord() {
-    String record = "${DateTime.now().toString().split('.')[0]} | ${elapsedSeconds ~/ 60}분 ${elapsedSeconds % 60}초 완료";
+    String record = "${DateTime.now().hour}:${DateTime.now().minute} | ${elapsedSeconds ~/ 60}분 ${elapsedSeconds % 60}초 완료";
     setState(() => workoutHistory.add(record));
-    
-    // 저장 후 리스트 화면으로 이동
     Navigator.push(context, MaterialPageRoute(builder: (context) => HistoryScreen(history: workoutHistory)));
   }
 
@@ -74,18 +72,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover)),
+        decoration: const BoxDecoration(
+          image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover),
+        ),
         child: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 20),
               const Text("Over the Bike Fit", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w200)),
               
-              // 슬림하고 세련된 그래프 박스
+              // 슬림해진 곡선 그래프 박스
               Container(
                 margin: const EdgeInsets.all(25),
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.redAccent.withOpacity(0.3))),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8), 
+                  borderRadius: BorderRadius.circular(20), 
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.3))
+                ),
                 child: Column(
                   children: [
                     Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -94,17 +98,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       Text("$bpm bpm", style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
                     ]),
                     const SizedBox(height: 15),
-                    SizedBox(height: 70, width: double.infinity, child: CustomPaint(painter: SmoothWavePainter(heartPoints))),
+                    SizedBox(height: 60, width: double.infinity, child: CustomPaint(painter: SmoothWavePainter(heartPoints))),
                   ],
                 ),
               ),
 
               const Spacer(),
               
-              // 컨트롤부
+              // 하단 컨트롤 패널
               Container(
                 padding: const EdgeInsets.all(30),
-                decoration: const BoxDecoration(color: Colors.black90, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.9), 
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(30))
+                ),
                 child: Column(
                   children: [
                     Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
@@ -132,14 +139,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget actionBtn(String txt, Color col, VoidCallback fn) => Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: col, padding: const EdgeInsets.symmetric(vertical: 15)), onPressed: fn, child: Text(txt)));
 }
 
-// 부드러운 곡선 그래프를 그리는 Painter
 class SmoothWavePainter extends CustomPainter {
   final List<double> points;
   SmoothWavePainter(this.points);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.redAccent..strokeWidth = 2.5..style = PaintingStyle.stroke;
+    final paint = Paint()..color = Colors.redAccent..strokeWidth = 2.0..style = PaintingStyle.stroke;
     final path = Path();
     final xStep = size.width / (points.length - 1);
     
@@ -149,7 +155,8 @@ class SmoothWavePainter extends CustomPainter {
       var y1 = size.height - points[i];
       var x2 = (i + 1) * xStep;
       var y2 = size.height - points[i + 1];
-      path.bezierTo(x1 + (xStep / 2), y1, x1 + (xStep / 2), y2, x2, y2);
+      // cubicTo를 사용하여 부드러운 곡선 구현
+      path.cubicTo(x1 + (xStep / 2), y1, x1 + (xStep / 2), y2, x2, y2);
     }
     canvas.drawPath(path, paint);
   }
@@ -157,7 +164,6 @@ class SmoothWavePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-// 기록 확인 화면
 class HistoryScreen extends StatelessWidget {
   final List<String> history;
   const HistoryScreen({super.key, required this.history});
@@ -170,10 +176,12 @@ class HistoryScreen extends StatelessWidget {
         ? const Center(child: Text("저장된 기록이 없습니다."))
         : ListView.builder(
             itemCount: history.length,
-            itemBuilder: (context, index) => ListTile(
-              leading: const Icon(Icons.directions_bike, color: Colors.redAccent),
-              title: Text(history[index]),
-              border: const Border(bottom: BorderSide(color: Colors.white10)),
+            itemBuilder: (context, index) => Container(
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10))),
+              child: ListTile(
+                leading: const Icon(Icons.directions_bike, color: Colors.redAccent),
+                title: Text(history[index]),
+              ),
             ),
           ),
     );

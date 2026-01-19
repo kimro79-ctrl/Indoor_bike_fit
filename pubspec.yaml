@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: Final version with graph and watch connectivity.
+description: Final version with Graph and Amazfit support.
 version: 1.0.0+1
 
 environment:
@@ -11,7 +11,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   flutter_native_splash: ^2.3.1
   flutter_blue_plus: ^1.31.1
-  fl_chart: ^0.66.0 # 데이터 시각화 그래프 라이브러리 추가
+  fl_chart: ^0.66.0 # 실시간 심박수 그래프 기능을 위한 라이브러리
 
 dev_dependencies:
   flutter_test:
@@ -23,6 +23,7 @@ flutter:
     - assets/background.png
     - assets/splash/splash_screen.png
 
+# 스플래시 화면 설정 (이미지 경로 및 배경색)
 flutter_native_splash:
   color: "#000000"
   image: assets/splash/splash_screen.png

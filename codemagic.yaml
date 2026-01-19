@@ -1,36 +1,26 @@
 workflows:
-  over_the_bike_fit:
-    name: Over The Bike Fit Build
-    instance_type: mac_mini_m2
-    max_build_duration: 45
-
+  android-workflow:
+    name: Android Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
     environment:
       flutter: stable
-
+      groups:
+        - keystore_credentials # 키스토어 설정 시 필요
     scripts:
-      - flutter pub get
-
-      - |
-        mkdir -p android/gradle/wrapper
-        echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties
-        echo "distributionPath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
-        echo "distributionUrl=https://services.gradle.org/distributions/gradle-8.5-all.zip" >> android/gradle/wrapper/gradle-wrapper.properties
-
-        echo "flutter.sdk=$HOME/programs/flutter" > android/local.properties
-        echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
-
-      - flutter clean
-      - flutter build apk --release --split-per-abi
-
+      - name: Get dependencies
+        script: |
+          flutter pub get
+      - name: Generate Splash Screen
+        script: |
+          # 스플래시 생성 명령어가 실패해도 빌드를 계속 진행하도록 설정
+          flutter pub run flutter_native_splash:create || true
+      - name: Build APK
+        script: |
+          flutter build apk --release
     artifacts:
-      - build/**/outputs/**/*.apk
-
+      - build/app/outputs/flutter-apk/*.apk
     publishing:
       email:
         recipients:
-          - your@email.com
-        notify:
-          success: true
-          failure: true
+          - YOUR_EMAIL@example.com # 본인 이메일로 수정하세요

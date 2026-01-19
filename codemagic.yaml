@@ -1,26 +1,19 @@
 workflows:
-  android-workflow:
+  android-workflow: # 워크플로 이름을 사진에 나온 'bike-fit-build' 대신 기본값으로 설정했습니다.
     name: Android Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     environment:
       flutter: stable
-      groups:
-        - keystore_credentials # 키스토어 설정 시 필요
     scripts:
       - name: Get dependencies
         script: |
           flutter pub get
       - name: Generate Splash Screen
         script: |
-          # 스플래시 생성 명령어가 실패해도 빌드를 계속 진행하도록 설정
           flutter pub run flutter_native_splash:create || true
       - name: Build APK
         script: |
           flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
-    publishing:
-      email:
-        recipients:
-          - YOUR_EMAIL@example.com # 본인 이메일로 수정하세요

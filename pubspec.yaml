@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: Final stable build with auto Bluetooth connection and persistent data
+description: Final stable build for Android release
 version: 1.0.0+1
 
 environment:
@@ -28,8 +28,8 @@ flutter:
     - assets/icon/app_icon.png
 
 flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: true
+  android: true
+  ios: false
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/icon/app_icon.png"

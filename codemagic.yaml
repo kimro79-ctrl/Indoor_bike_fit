@@ -1,15 +1,17 @@
 workflows:
   android-workflow:
-    name: Over The Bike Fit Final
+    name: Bike Fit Final Build
     instance_type: mac_mini_m1
     environment:
       flutter: stable
     scripts:
-      - name: Project Setup
+      - name: Reconstruct Project
         script: flutter create --platforms android .
       - name: Get Packages
         script: flutter pub get
       - name: Build APK
-        script: flutter build apk --release --build-number=100
+        script: |
+          # 빌드 번호를 120으로 올려서 아이콘/스플래시가 폰에 강제 적용되게 함
+          flutter build apk --release --build-name=1.1.0 --build-number=120
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk

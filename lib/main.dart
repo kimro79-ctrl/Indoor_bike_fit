@@ -62,10 +62,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
   }
 
-  // 심박수 85 이상일 때만 칼로리 계산 (정지 상태 상승 방지)
+  // 칼로리 로직: 심박수 90 이상일 때만 소모량 계산
   double _calculateCalories(int currentBpm) {
-    if (currentBpm < 85) return 0.0;
-    return (currentBpm - 70) * 0.0016; 
+    if (currentBpm < 90) return 0.0;
+    return (currentBpm - 80) * 0.0018; 
   }
 
   void _startScan() async {
@@ -135,25 +135,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               GestureDetector(
                 onTap: _startScan,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(border: Border.all(color: neonColor.withOpacity(0.5)), borderRadius: BorderRadius.circular(15)),
+                  margin: const EdgeInsets.symmetric(vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(border: Border.all(color: neonColor.withOpacity(0.4)), borderRadius: BorderRadius.circular(12)),
                   child: Text(watchStatus, style: const TextStyle(fontSize: 9, color: neonColor)),
                 ),
               ),
 
-              // 심박수 영역 (콤팩트 축소)
+              // 심박수 영역 (콤팩트 레이아웃)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 5),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(15)),
                 child: Row(
                   children: [
                     Column(children: [
-                      const Text("BPM", style: TextStyle(fontSize: 9, color: Colors.white54)),
-                      Text("${bpm > 0 ? bpm : '--'}", style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: neonColor)),
+                      const Text("BPM", style: TextStyle(fontSize: 8, color: Colors.white54)),
+                      Text("${bpm > 0 ? bpm : '--'}", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: neonColor)),
                     ]),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 15),
                     Expanded(
                       child: SizedBox(height: 35, child: LineChart(LineChartData(
                         gridData: const FlGridData(show: false),
@@ -161,7 +161,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         borderData: FlBorderData(show: false),
                         lineBarsData: [LineChartBarData(
                           spots: heartRateSpots.isEmpty ? [const FlSpot(0, 0)] : heartRateSpots,
-                          isCurved: true, color: neonColor, barWidth: 2, dotData: const FlDotData(show: false),
+                          isCurved: true, color: neonColor, barWidth: 1.5, dotData: const FlDotData(show: false),
                         )]
                       ))),
                     )
@@ -171,7 +171,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
               const Spacer(),
 
-              // 하단 일렬 레이아웃 (칼로리 | 운동시간 | 목표설정)
+              // 하단 레이아웃 일렬 배치 (칼로리 | 운동시간 | 목표설정)
               Container(
                 padding: const EdgeInsets.fromLTRB(15, 20, 15, 30),
                 decoration: BoxDecoration(
@@ -179,13 +179,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ),
                 child: Column(children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _item("칼로리", "${totalCalories.toStringAsFixed(1)} kcal", neonColor),
-                      _divider(),
-                      _item("운동시간", "${(elapsedSeconds ~/ 60).toString().padLeft(2, '0')}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", Colors.white),
-                      _divider(),
-                      _targetItem(),
+                      _infoCell("칼로리", "${totalCalories.toStringAsFixed(1)} kcal", neonColor),
+                      _vDivider(),
+                      _infoCell("운동시간", "${(elapsedSeconds ~/ 60).toString().padLeft(2, '0')}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", Colors.white),
+                      _vDivider(),
+                      _targetCell(),
                     ],
                   ),
                   const SizedBox(height: 25),
@@ -197,7 +196,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) {
                             setState(() {
                               elapsedSeconds++;
-                              if (bpm >= 85) totalCalories += _calculateCalories(bpm);
+                              if (bpm >= 90) totalCalories += _calculateCalories(bpm);
                             });
                           });
                         } else { workoutTimer?.cancel(); }
@@ -233,25 +232,29 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _item(String label, String value, Color color) => Expanded(child: Column(children: [
-    Text(label, style: const TextStyle(fontSize: 9, color: Colors.white54)),
-    const SizedBox(height: 4),
-    Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), textAlign: TextAlign.center),
-  ]));
+  Widget _infoCell(String label, String value, Color color) => Expanded(
+    child: Column(children: [
+      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white54)),
+      const SizedBox(height: 3),
+      Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), textAlign: TextAlign.center),
+    ]),
+  );
 
-  Widget _targetItem() => Expanded(child: Column(children: [
-    const Text("목표설정", style: TextStyle(fontSize: 9, color: Colors.white54)),
-    const SizedBox(height: 2),
-    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-      GestureDetector(onTap: () => setState(() => targetMinutes--), child: const Icon(Icons.remove, size: 14)),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: Text("$targetMinutes분", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold))),
-      GestureDetector(onTap: () => setState(() => targetMinutes++), child: const Icon(Icons.add, size: 14)),
-    ])
-  ]));
+  Widget _targetCell() => Expanded(
+    child: Column(children: [
+      const Text("목표설정", style: TextStyle(fontSize: 8, color: Colors.white54)),
+      const SizedBox(height: 2),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        GestureDetector(onTap: () => setState(() => targetMinutes--), child: const Icon(Icons.remove, size: 14)),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text("$targetMinutes분", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+        GestureDetector(onTap: () => setState(() => targetMinutes++), child: const Icon(Icons.add, size: 14)),
+      ]),
+    ]),
+  );
 
-  Widget _divider() => Container(width: 1, height: 20, color: Colors.white10);
+  Widget _vDivider() => Container(width: 1, height: 18, color: Colors.white10);
 
-  Widget _btn(String t, Color c, VoidCallback f) => Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: c, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: f, child: Text(t, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white))));
+  Widget _btn(String t, Color c, VoidCallback f) => Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: c, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: f, child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white))));
 }
 
 class HistoryPage extends StatelessWidget {

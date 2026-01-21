@@ -10,8 +10,7 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   runApp(const BikeFitApp());
-  // 스플래시 3.5초로 약간 연장 (확실한 인지)
-  await Future.delayed(const Duration(milliseconds: 3500));
+  await Future.delayed(const Duration(seconds: 3));
   FlutterNativeSplash.remove();
 }
 
@@ -34,7 +33,6 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  int bpm = 0;
   int elapsedSeconds = 0;
   int targetMinutes = 20;
   bool isRunning = false;
@@ -54,75 +52,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (data != null) setState(() => workoutLogs = List<Map<String, dynamic>>.from(json.decode(data)));
   }
 
-  Future<void> _saveLog() async {
-    if (elapsedSeconds < 5) return;
-    final prefs = await SharedPreferences.getInstance();
-    final log = {
-      "date": "${DateTime.now().year}.${DateTime.now().month}.${DateTime.now().day}",
-      "time": "${elapsedSeconds ~/ 60}분 ${elapsedSeconds % 60}초",
-      "bpm": bpm > 0 ? "$bpm" : "-"
-    };
-    workoutLogs.insert(0, log);
-    await prefs.setString('workout_history', json.encode(workoutLogs));
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("운동 기록이 저장되었습니다.")));
-  }
-
-  // 연결 시 설정 확인 및 권한 요청
-  Future<void> _handleWatchConnection() async {
+  // 워치 연결 로직 (이벤트 수정)
+  Future<void> _handleConnect() async {
+    setState(() => watchStatus = "권한 확인 중...");
     await [Permission.bluetoothScan, Permission.bluetoothConnect, Permission.location].request();
-    await FlutterBluePlus.turnOn();
-    setState(() => watchStatus = "기기 연결 확인 중...");
     
-    // 이미 시스템에 연결된 워치가 있는지 먼저 체크
-    List<BluetoothDevice> systemDevices = await FlutterBluePlus.connectedDevices;
-    if (systemDevices.isNotEmpty) {
-      _establishConnection(systemDevices.first);
-    } else {
-      // 없을 경우 스캔 시작
-      FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
-      FlutterBluePlus.scanResults.listen((results) {
-        for (ScanResult r in results) {
-          if (r.device.platformName.toLowerCase().contains("watch") || r.device.platformName.toLowerCase().contains("fit")) {
-            FlutterBluePlus.stopScan();
-            _establishConnection(r.device);
-            break;
-          }
-        }
-      });
-    }
-  }
-
-  void _establishConnection(BluetoothDevice device) async {
-    try {
-      await device.connect();
-      setState(() => watchStatus = "연결됨: ${device.platformName}");
-    } catch (e) {
-      setState(() => watchStatus = "연결 실패 (설정 확인)");
-    }
+    setState(() => watchStatus = "워치를 찾는 중...");
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+    FlutterBluePlus.scanResults.listen((results) {
+      if (results.isNotEmpty) {
+        FlutterBluePlus.stopScan();
+        results.first.device.connect().then((_) {
+          setState(() => watchStatus = "연결됨: ${results.first.device.platformName}");
+        });
+      }
+    });
   }
 
   void _showHistory() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const Text("운동 기록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(color: Colors.white24),
-            Expanded(
-              child: ListView.builder(
-                itemCount: workoutLogs.length,
-                itemBuilder: (context, i) => ListTile(
-                  title: Text(workoutLogs[i]['date']),
-                  subtitle: Text("시간: ${workoutLogs[i]['time']} | 심박수: ${workoutLogs[i]['bpm']}"),
-                ),
-              ),
-            ),
-          ],
+      backgroundColor: Colors.black.withOpacity(0.9),
+      builder: (context) => ListView.builder(
+        itemCount: workoutLogs.length,
+        itemBuilder: (context, i) => ListTile(
+          title: Text(workoutLogs[i]['date'] ?? ""),
+          subtitle: Text("시간: ${workoutLogs[i]['time']}"),
         ),
       ),
     );
@@ -132,71 +87,97 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover)),
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover),
+        ),
         child: SafeArea(
-          child: Column(children: [
-            // 상단 바 정렬 및 기록 버튼 복구
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const SizedBox(width: 40),
-                const Text("BIKE FIT", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, letterSpacing: 2)),
-                IconButton(icon: const Icon(Icons.history, color: Colors.white, size: 30), onPressed: _showHistory),
-              ]),
-            ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: _handleWatchConnection,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                decoration: BoxDecoration(border: Border.all(color: Colors.cyanAccent), borderRadius: BorderRadius.circular(25)),
-                child: Text(watchStatus, style: const TextStyle(color: Colors.cyanAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 40),
+                    const Text("BIKE FIT", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic)),
+                    IconButton(icon: const Icon(Icons.history, size: 30), onPressed: _showHistory),
+                  ],
+                ),
               ),
-            ),
-            const Spacer(),
-            // 가시성을 대폭 개선한 하단 패널
-            Container(
-              padding: const EdgeInsets.fromLTRB(30, 40, 30, 40),
-              decoration: const BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.vertical(top: Radius.circular(40))),
-              child: Column(children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  // 운동 시간 (비율 확대)
-                  Expanded(child: Column(children: [
-                    const Text("운동시간", style: TextStyle(fontSize: 14, color: Colors.white54)),
-                    const SizedBox(height: 10),
-                    Text("${elapsedSeconds ~/ 60}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", 
-                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-                  ])),
-                  Container(height: 50, width: 1, color: Colors.white10),
-                  // 목표 설정 (비율 확대)
-                  Expanded(child: Column(children: [
-                    const Text("목표설정", style: TextStyle(fontSize: 14, color: Colors.white54)),
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      IconButton(icon: const Icon(Icons.remove_circle_outline, size: 24), onPressed: () => setState(() => targetMinutes--)),
-                      Text("$targetMinutes분", style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                      IconButton(icon: const Icon(Icons.add_circle_outline, size: 24), onPressed: () => setState(() => targetMinutes++)),
-                    ]),
-                  ])),
-                ]),
-                const SizedBox(height: 40),
-                Row(children: [
-                  Expanded(child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: isRunning ? Colors.grey[700] : Colors.redAccent, padding: const EdgeInsets.symmetric(vertical: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                    onPressed: () {
-                      setState(() {
-                        isRunning = !isRunning;
-                        if (isRunning) workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => elapsedSeconds++));
-                        else workoutTimer?.cancel();
-                      });
-                    }, child: Text(isRunning ? "정지" : "시작", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)))),
-                  const SizedBox(width: 15),
-                  Expanded(child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                    onPressed: _saveLog, child: const Text("저장", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)))),
-                ]),
-              ]),
-            ),
-          ]),
+              const SizedBox(height: 10),
+              // 워치 연결 버튼
+              GestureDetector(
+                onTap: _handleConnect,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.cyanAccent), borderRadius: BorderRadius.circular(20)),
+                  child: Text(watchStatus, style: const TextStyle(color: Colors.cyanAccent)),
+                ),
+              ),
+              const Spacer(),
+              // 하단 UI: 검은 박스 제거하고 그라데이션 오버레이 느낌으로 수정
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(children: [
+                          const Text("운동시간", style: TextStyle(color: Colors.white70)),
+                          Text("${elapsedSeconds ~/ 60}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", 
+                              style: const TextStyle(fontSize: 35, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                        ]),
+                        Column(children: [
+                          const Text("목표설정", style: TextStyle(color: Colors.white70)),
+                          Row(children: [
+                            IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() => targetMinutes--)),
+                            Text("$targetMinutes분", style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => targetMinutes++)),
+                          ]),
+                        ]),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                            onPressed: () {
+                              setState(() {
+                                isRunning = !isRunning;
+                                if (isRunning) workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => elapsedSeconds++));
+                                else workoutTimer?.cancel();
+                              });
+                            },
+                            child: Text(isRunning ? "정지" : "시작", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                            onPressed: () {}, // 저장 로직
+                            child: const Text("저장", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

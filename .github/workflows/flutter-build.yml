@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +28,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build debug APK
+      - name: Build APK
         run: flutter build apk --debug
 
       - name: Upload artifact (APK)

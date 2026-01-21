@@ -15,10 +15,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 'stable'
-      - run: flutter pub get
-      - run: flutter pub run flutter_launcher_icons:main || true
-      - run: flutter build apk --debug
-      - uses: actions/upload-artifact@v4
+      - name: Build Start
+        run: |
+          flutter pub get
+          flutter pub run flutter_launcher_icons:main || true
+          flutter build apk --debug
+      - name: Save APK
+        uses: actions/upload-artifact@v4
         with:
-          name: over-the-bike-app
+          name: over-the-bike-fit
           path: build/app/outputs/flutter-apk/app-debug.apk

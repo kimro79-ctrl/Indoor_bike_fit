@@ -9,8 +9,12 @@ import 'dart:async';
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  // 스플래시 화면 유지 시작
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  
   runApp(const BikeFitApp());
+
+  // 3초간 대기 후 스플래시 화면 제거
   await Future.delayed(const Duration(seconds: 3));
   FlutterNativeSplash.remove();
 }
@@ -41,6 +45,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   String watchStatus = "기기 자동 검색 중...";
   List<FlSpot> heartRateSpots = [];
   List<Map<String, dynamic>> workoutLogs = [];
+
   BluetoothDevice? connectedDevice;
   StreamSubscription? scanSubscription;
   Timer? workoutTimer;
@@ -49,16 +54,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     _loadLogs();
+    // 앱 실행 시 자동 연결 프로세스 시작
     WidgetsBinding.instance.addPostFrameCallback((_) => _autoConnect());
   }
 
   Future<void> _loadLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final String? data = prefs.getString('workout_history');
-    if (data != null) setState(() => workoutLogs = List<Map<String, dynamic>>.from(json.decode(data)));
+    if (data != null) {
+      setState(() => workoutLogs = List<Map<String, dynamic>>.from(json.decode(data)));
+    }
   }
 
-  // 에러 해결: _saveLog 함수 위치를 확실히 정의
+  // 에러 해결 1: _saveLog 함수 위치를 클래스 내부에 정확히 정의
   Future<void> _saveLog(Map<String, dynamic> log) async {
     final prefs = await SharedPreferences.getInstance();
     workoutLogs.insert(0, log);
@@ -74,19 +82,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void _startAutoScan() async {
     setState(() => watchStatus = "워치 자동 연결 시도 중...");
     
-    // 에러 해결: 최신 패키지 문법에 맞춰 systemDevices 호출 방식 수정
+    // 에러 해결 2: 최신 패키지 문법에 맞춰 연결된 기기 확인 방식 수정
     try {
-      List<BluetoothDevice> systemDevices = await FlutterBluePlus.connectedDevices;
-      for (var device in systemDevices) {
-        if (device.platformName.toLowerCase().contains("watch") || device.platformName.toLowerCase().contains("amazfit")) {
+      List<BluetoothDevice> connectedDevices = FlutterBluePlus.connectedDevices;
+      for (var device in connectedDevices) {
+        String name = device.platformName.toLowerCase();
+        if (name.contains("watch") || name.contains("amazfit") || name.contains("galaxy")) {
           _establishConnection(device);
           return;
         }
       }
     } catch (e) {
-      debugPrint("시스템 기기 조회 실패");
+      debugPrint("기기 확인 중 오류 발생");
     }
 
+    // 주변 기기 검색 시작
     FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
     scanSubscription?.cancel();
     scanSubscription = FlutterBluePlus.scanResults.listen((results) {
@@ -108,11 +118,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         connectedDevice = device;
         watchStatus = "연결 완료: ${device.platformName}";
       });
+
       List<BluetoothService> services = await device.discoverServices();
       for (var s in services) {
-        if (s.uuid == Guid("180d")) {
+        if (s.uuid == Guid("180d")) { // 심박수 서비스
           for (var c in s.characteristics) {
-            if (c.uuid == Guid("2a37")) {
+            if (c.uuid == Guid("2a37")) { // 측정값 캐릭터리스틱
               await c.setNotifyValue(true);
               c.lastValueStream.listen((value) {
                 if (value.isNotEmpty && mounted) {
@@ -132,6 +143,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
   }
 
+  // --- UI 도우미 함수들 ---
   Widget _infoBox(String label, String value, Color color) {
     return Column(children: [
       Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
@@ -143,55 +155,4 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     return Column(children: [
       const Text("목표설정", style: TextStyle(fontSize: 11, color: Colors.grey)),
       Row(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(onPressed: () => setState(() => targetMinutes--), icon: const Icon(Icons.remove_circle_outline)),
-        Text("$targetMinutes분", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        IconButton(onPressed: () => setState(() => targetMinutes++), icon: const Icon(Icons.add_circle_outline)),
-      ])
-    ]);
-  }
-
-  Widget _btn(String text, Color color, VoidCallback onTap) {
-    return Expanded(child: ElevatedButton(
-      style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 15)),
-      onPressed: onTap, child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(image: DecorationImage(image: AssetImage("assets/background.png"), fit: BoxFit.cover)),
-        child: SafeArea(
-          child: Column(children: [
-            const SizedBox(height: 30),
-            const Text("OVER THE BIKE FIT", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic, letterSpacing: 2)),
-            const SizedBox(height: 10),
-            GestureDetector(onTap: _startAutoScan, child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-              decoration: BoxDecoration(border: Border.all(color: Colors.cyan), borderRadius: BorderRadius.circular(20)),
-              child: Text(watchStatus, style: const TextStyle(color: Colors.cyan, fontSize: 13)),
-            )),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(25),
-              decoration: const BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-              child: Column(children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  _infoBox("운동시간", "${elapsedSeconds ~/ 60}:${(elapsedSeconds % 60).toString().padLeft(2, '0')}", Colors.redAccent),
-                  _targetBox(),
-                ]),
-                const SizedBox(height: 25),
-                Row(children: [
-                  _btn(isRunning ? "정지" : "시작", isRunning ? Colors.grey : Colors.redAccent, () {
-                    setState(() {
-                      isRunning = !isRunning;
-                      if (isRunning) workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => elapsedSeconds++));
-                      else workoutTimer?.cancel();
-                    });
-                  }),
-                  const SizedBox(width: 15),
-                  _btn("저장", Colors.green, () {
-                    if (elapsedSeconds > 0) {
-                      _saveLog({
-                        "date": "${DateTime.now().month}/${DateTime
+        IconButton(onPressed: () => setState(() => targetMinutes

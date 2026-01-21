@@ -5,13 +5,15 @@ workflows:
     environment:
       flutter: stable
     scripts:
-      - name: Reconstruct Project
-        script: flutter create --platforms android .
-      - name: Get Packages
+      - name: Clean and Create Project
+        script: |
+          flutter clean
+          flutter create --platforms android .
+      - name: Get packages
         script: flutter pub get
       - name: Build APK
         script: |
-          # 빌드 번호를 120으로 올려서 아이콘/스플래시가 폰에 강제 적용되게 함
-          flutter build apk --release --build-name=1.1.0 --build-number=120
+          # 빌드 번호를 150으로 대폭 상승 (아이콘/스플래시 캐시 방지)
+          flutter build apk --release --build-name=1.2.0 --build-number=150
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk

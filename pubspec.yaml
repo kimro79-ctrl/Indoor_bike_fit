@@ -1,6 +1,6 @@
 name: over_the_bike_fit
-description: Final version with fixed icon and auto-connect.
-version: 1.0.0+1
+description: Final Production Version.
+version: 1.0.1+2 # 버전을 올려서 새 앱으로 인식하게 함
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -13,6 +13,7 @@ dependencies:
   flutter_blue_plus: ^1.31.1
   fl_chart: ^0.66.0
   permission_handler: ^12.0.1
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -27,7 +28,7 @@ flutter:
     - assets/icon/app_icon.png
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: "launcher_icon" # 이름을 지정하여 강제 생성
   ios: true
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#000000"
@@ -40,4 +41,3 @@ flutter_native_splash:
     image: assets/splash/splash_screen.png
     color: "#000000"
   fullscreen: true
-  android_gravity: fill

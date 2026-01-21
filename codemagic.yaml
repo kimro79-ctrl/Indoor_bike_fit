@@ -4,12 +4,11 @@ workflows:
     environment:
       flutter: stable
     scripts:
-      - name: Reconstruct Project and Fix Icon Path
+      - name: Reconstruct Project and Inject Permissions
         script: |
-          # 안드로이드 구조 재생성 및 V2 임베딩 적용
           flutter create --platforms android .
           
-          # 권한 파일 강제 주입 (meta-data 포함하여 V1 오류 방지)
+          # AndroidManifest.xml의 아이콘 경로를 @mipmap/ic_launcher로 통일
           mkdir -p android/app/src/main
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -40,12 +39,11 @@ workflows:
       - name: Get packages and Generate Assets
         script: |
           flutter pub get
-          # 아이콘과 스플래시 생성
           flutter pub run flutter_launcher_icons:main
           flutter pub run flutter_native_splash:create
       - name: Build APK
         script: |
-          # 리소스 누락 에러 방지를 위한 클린 빌드
-          flutter build apk --release --build-name=2.1.0 --build-number=2100
+          # 빌드 번호를 높여서 확실히 구분 (3000)
+          flutter build apk --release --build-name=3.0.0 --build-number=3000
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk

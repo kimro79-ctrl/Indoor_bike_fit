@@ -1,6 +1,15 @@
-      - name: Reconstruct Project and Force Icon Fix
+workflows:
+  android-release:
+    name: OverTheBikeFit Build
+    environment:
+      flutter: stable
+    scripts:
+      - name: Reconstruct Project and Force Icon Settings
         script: |
+          # 프로젝트 구조 재생성
           flutter create --platforms android .
+          
+          # 아이콘 설정을 AndroidManifest에 강제 주입
           mkdir -p android/app/src/main
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -11,7 +20,7 @@
                   android:label="OverTheBikeFit"
                   android:name="\${applicationName}"
                   android:icon="@mipmap/ic_launcher"
-                  android:roundIcon="@mipmap/ic_launcher"> 
+                  android:roundIcon="@mipmap/ic_launcher">
                   <meta-data android:name="flutterEmbedding" android:value="2" />
                   <activity
                       android:name=".MainActivity"
@@ -29,3 +38,14 @@
               </application>
           </manifest>
           EOF
+      - name: Get packages and Generate Assets
+        script: |
+          flutter pub get
+          flutter pub run flutter_launcher_icons:main
+          flutter pub run flutter_native_splash:create
+      - name: Build APK
+        script: |
+          # 빌드 버전을 4000으로 올려서 시스템이 아이콘을 새로 읽도록 유도
+          flutter build apk --release --build-name=4.0.0 --build-number=4000
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk

@@ -11,15 +11,11 @@ workflows:
           flutter pub get
       - name: Generate App Icons
         script: |
-          # 에러 무시 옵션을 주거나, 경로가 없을 경우를 대비해 시도만 합니다.
-          flutter pub run flutter_launcher_icons || true 
+          # 폴더가 없어도 빌드가 멈추지 않게 || true를 붙입니다.
+          flutter pub run flutter_launcher_icons || true
       - name: Flutter build APK
         script: |
-          # 버전을 1.0.1+6으로 올려서 새 앱으로 인식하게 함
-          flutter build apk --release --build-name=1.0.1 --build-number=6
+          # Gradle 프로젝트 에러를 방지하기 위해 강제 빌드 시도
+          flutter build apk --release --build-name=1.0.1 --build-number=7
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
-    publishing:
-      email:
-        recipients:
-          - YOUR_EMAIL@example.com

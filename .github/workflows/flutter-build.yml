@@ -1,4 +1,4 @@
-name: Optimized Final Build
+name: BikeFit Perfect Build
 on: [push, workflow_dispatch]
 
 jobs:
@@ -9,31 +9,35 @@ jobs:
 
       - name: Java Setup
         uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '17' }
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Flutter Setup
         uses: subosito/flutter-action@v2
-        with: { flutter-version: '3.27.1', channel: 'stable' }
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
 
-      - name: 빌드 및 리소스
+      - name: 안드로이드 빌드 및 권한 설정
         run: |
-          # 안드로이드 재생성
+          # 1. 안드로이드 초기화
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           
-          # 권한 주입
+          # 2. 블루투스 및 위치 권한 주입
           sed -i '/<application/i \    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />\n    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           
+          # 3. 리소스 및 패키지 설치
           flutter pub get
-          # 아이콘/스플래시 생성
           flutter pub run flutter_launcher_icons:main || true
           flutter pub run flutter_native_splash:create || true
           
-          # APK 빌드 (디버그 모드가 설치/테스트에 빠름)
+          # 4. APK 빌드
           flutter build apk --debug --no-tree-shake-icons
 
-      - name: APK 추출
+      - name: APK 파일 추출
         uses: actions/upload-artifact@v4
         with:
-          name: over-the-bike-v1.2
-          path: "build/app/outputs/flutter-apk/app-debug.apk"
+          name: over-the-bike-final
+          path: build/app/outputs/flutter-apk/app-debug.apk

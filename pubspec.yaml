@@ -1,24 +1,37 @@
 name: over_the_bike_fit
-description: Final Build Fix
+description: Bike Fit App Restoration
 version: 1.0.0+1
 publish_to: 'none'
 
 environment:
-  # 현재 서버 환경인 3.27.1과 완벽히 호환되도록 설정
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_blue_plus: ^1.31.1
-  fl_chart: ^0.66.0
-  permission_handler: ^11.3.1
+  flutter_blue_plus: ^1.31.1 # 블루투스
+  fl_chart: ^0.66.0         # 기록 그래프
+  permission_handler: ^11.3.1 # 권한 설정
+  shared_preferences: ^2.3.2  # 데이터 저장
+  flutter_native_splash: ^2.4.0 # 스플래시
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: "^0.13.1" # 아이콘
 
 flutter:
   uses-material-design: true
   assets:
     - assets/background.png
+    - assets/splash/splash_screen.png
+    - assets/icon/app_icon.png
+
+# 아이콘 및 스플래시 설정 (서버 빌드 시 적용 예정)
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/icon/app_icon.png"
+
+flutter_native_splash:
+  color: "#000000"
+  image: "assets/splash/splash_screen.png"

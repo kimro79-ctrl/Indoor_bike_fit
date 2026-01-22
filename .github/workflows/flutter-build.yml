@@ -1,4 +1,4 @@
-name: Flutter Build Final
+name: Flutter Build V1 Force
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,34 +6,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Java Setup
+      - name: Java 11 Setup
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11' # 옛날 버전에는 Java 11이 더 잘 맞습니다.
 
-      - name: Flutter Setup
+      - name: Flutter Setup (Old Version)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          # V1을 공식적으로 지원했던 마지막 세대 버전을 사용합니다.
+          flutter-version: '2.10.5' 
           channel: 'stable'
 
-      - name: 안드로이드 설정 강제 최신화
+      - name: Build APK
         run: |
-          # 1. 기존 안드로이드 폴더의 낡은 설정들을 최신(V2)으로 덮어씁니다.
-          flutter create . --platforms android --overwrite
-          
-          # 2. 의존성 해결
           flutter pub get
-          
-          # 3. 아이콘 생성 (에러 무시)
-          flutter pub run flutter_launcher_icons:main || true
-          
-          # 4. 강제 빌드
-          flutter build apk --debug --no-tree-shake-icons --no-version-check
-
-      - name: APK 추출
-        uses: actions/upload-artifact@v4
-        with:
-          name: bike-app-final
-          path: "**/build/app/outputs/flutter-apk/app-debug.apk"
+          # 모든 검사를 무시하고 옛날 방식으로 APK 추출
+          flutter build apk --debug --no-tree-shake-icons

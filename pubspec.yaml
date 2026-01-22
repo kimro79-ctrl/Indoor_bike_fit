@@ -1,6 +1,7 @@
 name: over_the_bike_fit
-description: "Professional cycling app"
+description: "A professional cycling heart rate monitor app with Galaxy Watch sync."
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -9,36 +10,43 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # 워치 통신 및 권한 핵심 패키지
   flutter_blue_plus: ^1.31.0
   permission_handler: ^11.3.1
   fl_chart: ^0.66.0
   cupertino_icons: ^1.0.6
 
 dev_dependencies:
-  flutter:
-    sdk: flutter
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  
+  # 아이콘 및 스플래시 생성 도구
   flutter_launcher_icons: "^0.13.1"
   flutter_native_splash: "^2.3.10"
 
-# [수정됨] 실제 GitHub에 있는 경로와 이름으로 맞췄습니다
+# [수정] 사용자님의 실제 폴더 구조(assets/icon/app_icon.png)에 맞춤
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-  image_path: "assets/icon/app_icon.png" # app_icon.png 로 수정
+  image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
 
+# [수정] 스플래시 화면 설정
 flutter_native_splash:
   color: "#000000"
-  # splash 폴더 안에 파일이 하나뿐이라면 그 파일명을 쓰거나, 아래처럼 경로를 맞춰야 합니다
-  image: "assets/icon/app_icon.png" # 임시로 아이콘과 같은 파일 사용 (에러 방지)
+  image: "assets/icon/app_icon.png"
+  android_12:
+    image: "assets/icon/app_icon.png"
+    color: "#000000"
   android: true
   ios: true
 
 flutter:
   uses-material-design: true
+
+  # [중요] 모든 리소스 경로를 정확히 등록해야 에러가 나지 않습니다.
   assets:
     - assets/background.png
     - assets/icon/app_icon.png

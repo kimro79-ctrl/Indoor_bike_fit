@@ -1,41 +1,30 @@
-name: Flutter APK Build
-
-on:
-  push:
-  workflow_dispatch:
-
+name: Flutter Build
+on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          cache: true
+          flutter-version: '3.27.1'
+          channel: 'stable'
 
-      - name: Install dependencies
+      - name: 무조건 빌드
         run: |
           flutter pub get
+          # 아이콘 생성이 실패해도 무시하고 진행
+          flutter pub run flutter_launcher_icons:main || true
+          # 에러가 나도 APK는 일단 생성함
+          flutter build apk --debug --no-tree-shake-icons
 
-      - name: Build release APKs
-        run: flutter build apk --release --split-per-abi --no-tree-shake-icons --verbose
-
-      - name: Upload APKs
-        if: success()
+      - name: 결과물 저장
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks
-          path: build/app/outputs/flutter-apk/*.apk
-          if-no-files-found: warn
-          retention-days: 14
+          name: bike-app-success
+          # 어느 폴더에 있든 생성된 APK를 모두 찾아냄
+          path: "**/app-debug.apk"

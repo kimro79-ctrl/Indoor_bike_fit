@@ -1,4 +1,4 @@
-name: Flutter Release APK Build
+name: Flutter APK Build
 
 on:
   push:
@@ -8,64 +8,42 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read  # checkout 필요
 
     steps:
-      # 1. 코드 내려받기
-      - name: Checkout source code
-        uses: actions/checkout@v4  # 최신 버전으로 업그레이드 (v2 → v4)
+      - name: 코드 가져오기
+        uses: actions/checkout@v4
 
-      # 2. Java 17 설치 (temurin 추천, 안정성 높음)
-      - name: Setup Java JDK 17
+      - name: Java 17 설치
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      # 3. Flutter 설치 (stable 최신, 캐시 적극 활용)
-      - name: Install Flutter SDK
+      - name: Flutter 설치
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      # 4. pub 캐시 (pubspec.lock 기반 키 → 80~90% 시간 단축)
-      - name: Cache pub dependencies
+      - name: 패키지 캐시
         uses: actions/cache@v4
         with:
           path: |
-            .pub-cache
-            .flutter-plugins
-            .flutter-plugins-dependencies
-          key: \( {{ runner.os }}-flutter-pub- \){{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-pub-
+            ~/.pub-cache
+          key: \( {{ runner.os }}-pub- \){{ hashFiles('**/pubspec.lock') }}
 
-      # 5. 프로젝트 정리 & 의존성 가져오기
-      - name: Clean project & fetch dependencies
+      - name: 정리 & 패키지 받기
         run: |
           flutter clean
           flutter pub get
 
-      # 6. analyze 단계 추가 (하지만 fatal 무시 → CI 깨지지 않게)
-      - name: Analyze code (non-fatal)
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
-        # ↑ 실패해도 CI 계속 진행 (exit code 무시)
-
-      # 7. release APK 빌드 (split-per-abi + tree-shake-icons 방지 플래그)
-      - name: Build release APKs (split per ABI)
+      - name: 릴리스 APK 빌드
         run: flutter build apk --release --split-per-abi --no-tree-shake-icons --verbose
-        # --verbose: 로그 자세히 나와서 디버깅 쉬움
-        # --no-tree-shake-icons: 아이콘 관련 tree-shake 실패 방지 (자주 터짐)
 
-      # 8. 빌드된 APK 업로드 (조건: 빌드 성공 시만)
-      - name: Upload release APKs as artifacts
-        if: success()  # 빌드 성공했을 때만 업로드
+      - name: APK 업로드
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: bike-release-apks
-          path: build/app/outputs/flutter-apk/app-*-release.apk  # split된 모든 APK
-          if-no-files-found: error
+          name: release-apks
+          path: build/app/outputs/flutter-apk/app-*-release.apk
           retention-days: 7
-          compression-level: 6

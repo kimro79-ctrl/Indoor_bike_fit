@@ -1,4 +1,4 @@
-name: Final Perfect Build
+name: Final Success Build
 on: [push, workflow_dispatch]
 
 jobs:
@@ -15,50 +15,23 @@ jobs:
         uses: subosito/flutter-action@v2
         with: { flutter-version: '3.27.1', channel: 'stable' }
 
-      - name: 안드로이드 환경 정밀 복구
+      - name: 안드로이드 환경 설정
         run: |
-          # 1. 안드로이드 폴더 초기화 및 재생성
+          # 1. 안드로이드 폴더 초기화
           rm -rf android
           flutter create . --platforms android --org com.overthebike.fit
           
-          # 2. AndroidManifest.xml 직접 생성 (권한 포함 및 문법 오류 원천 봉쇄)
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <application
-                  android:label="Over The Bike Fit"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme" />
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          # 3. 리소스 빌드 (아이콘/스플래시)
-          flutter pub get
-          flutter pub run flutter_launcher_icons:main -f pubspec.yaml || true
-          flutter pub run flutter_native_splash:create --path=pubspec.yaml || true
+          # 2. 권한 주입 (가장 안전한 sed 방식 사용)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />\n    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           
-          # 4. APK 빌드
+          # 3. 리소스 생성 및 빌드
+          flutter pub get
+          flutter pub run flutter_launcher_icons:main || true
+          flutter pub run flutter_native_splash:create || true
           flutter build apk --debug --no-tree-shake-icons
 
       - name: APK 추출
         uses: actions/upload-artifact@v4
-        with
+        with:
+          name: over-the-bike-final
+          path: "build/app/outputs/flutter-apk/app-debug.apk"

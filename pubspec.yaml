@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: Final Optimized Version
+description: Bike Fit Perfect Version
 version: 1.0.0+1
 publish_to: 'none'
 
@@ -9,16 +9,26 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_blue_plus: ^1.31.1
   fl_chart: ^0.66.0
   permission_handler: ^11.3.1
-  shared_preferences: ^2.3.2
   flutter_native_splash: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "^0.13.1"
+
+# 👈 이 아래 섹션들이 있어야 빌드 에러가 나지 않습니다.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+
+flutter_native_splash:
+  color: "#000000"
+  image: "assets/splash/splash_screen.png"
+  android_12:
+    image: "assets/splash/splash_screen.png"
 
 flutter:
   uses-material-design: true

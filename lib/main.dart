@@ -6,7 +6,6 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 스플래시 화면 지연
   await Future.delayed(const Duration(seconds: 4));
   runApp(const BikeFitApp());
 }
@@ -30,7 +29,7 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  int _heartRate = 0; // 초기값 0
+  int _heartRate = 0; 
   double _calories = 0.0;
   Duration _duration = Duration.zero;
   Timer? _workoutTimer;
@@ -39,21 +38,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isWatchConnected = false;
   List<FlSpot> _hrSpots = [];
   double _timerCounter = 0;
-  List<String> _workoutHistory = []; // 기록 저장용 리스트
+  List<String> _workoutHistory = [];
 
-  // 1. 워치 연결 (심박수 기능 활성화)
   Future<void> _handleWatchConnection() async {
     await [Permission.bluetoothConnect, Permission.bluetoothScan, Permission.location].request();
     await openAppSettings(); 
-    
     setState(() {
       _isWatchConnected = true;
-      _heartRate = 70; // 연결 즉시 초기값 표시
+      _heartRate = 70;
     });
     
     _watchTimer?.cancel();
     _watchTimer = Timer.periodic(const Duration(milliseconds: 500), (t) {
-      if (!mounted || !_isWatchConnected) { t.cancel(); return; }
+      if (!mounted || !_isWatchConnected) return;
       setState(() {
         if (_isWorkingOut) {
           _heartRate = 100 + Random().nextInt(40);
@@ -62,13 +59,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           _timerCounter += 0.5;
           _calories += 0.05;
         } else {
-          _heartRate = 60 + Random().nextInt(10); // 휴식기 심박
+          _heartRate = 60 + Random().nextInt(10);
         }
       });
     });
   }
 
-  // 2. 시작/정지 버튼 (워치 없이 독립 작동)
   void _toggleWorkout() {
     setState(() {
       _isWorkingOut = !_isWorkingOut;
@@ -82,7 +78,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // 3. 저장 기능
   void _saveWorkout() {
     if (_duration.inSeconds < 1) return;
     String record = "${DateTime.now().toString().substring(5, 16)} | ${_duration.inMinutes}분 | ${_calories.toStringAsFixed(1)}kcal";
@@ -90,12 +85,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록이 저장되었습니다.')));
   }
 
-  // 4. 기록 보기 기능 (팝업)
   void _showHistory() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('운동 기록', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('운동 기록'),
         backgroundColor: Colors.grey[900],
         content: SizedBox(
           width: double.maxFinite,
@@ -105,7 +99,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             : ListView.builder(
                 itemCount: _workoutHistory.length,
                 itemBuilder: (context, index) => ListTile(
-                  leading: const Icon(Icons.history, color: Colors.cyanAccent, size: 20),
+                  leading: const Icon(Icons.history, color: Colors.cyanAccent),
                   title: Text(_workoutHistory[index], style: const TextStyle(fontSize: 12)),
                 ),
               ),
@@ -127,18 +121,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               children: [
                 const SizedBox(height: 10),
                 const Text('Over The Bike Fit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: ActionChip(
                     avatar: Icon(Icons.bluetooth, size: 14, color: _isWatchConnected ? Colors.cyanAccent : Colors.white),
                     label: Text(_isWatchConnected ? "워치 데이터 동기화 중" : "권한 설정 및 워치 연결"),
                     onPressed: _handleWatchConnection,
-                    backgroundColor: Colors.black57,
+                    backgroundColor: Colors.black54, // 👈 Colors.black57에서 수정됨
                   ),
                 ),
-
-                // 그래프 (워치 미연결 시 숨김)
                 Container(
                   height: 100,
                   margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -156,10 +147,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     borderData: FlBorderData(show: false),
                   )),
                 ),
-
                 const Spacer(),
-
-                // 데이터 수치
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
                   child: GridView.count(
@@ -172,8 +160,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     ],
                   ),
                 ),
-
-                // 하단 버튼
                 Padding(
                   padding: const EdgeInsets.only(bottom: 30, top: 20),
                   child: Row(

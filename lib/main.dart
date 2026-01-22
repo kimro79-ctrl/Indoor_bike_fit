@@ -6,10 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 스플래시 화면을 조금 더 길게 유지하기 위한 지연 (3초)
-  await Future.delayed(const Duration(seconds: 3)); 
-  
+  // 스플래시 화면을 길게 보여주기 위한 3초 지연
+  await Future.delayed(const Duration(seconds: 3));
   runApp(const BikeFitApp());
 }
 
@@ -38,61 +36,60 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Timer? _timer;
   bool _isWorkingOut = false;
   bool _isWatchConnected = false;
-  List<FlSpot> _hrSpots = [const FlSpot(0, 70)];
+  List<FlSpot> _hrSpots = []; 
   double _timerCounter = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _startBackgroundDataStream(); // 앱 시작 시 기본 데이터 흐름 시작
-  }
-
-  // 1. 권한 설정 버튼 기능 (직접 설정창으로 이동 및 권한 요청)
-  Future<void> _requestAndOpenSettings() async {
-    // 블루투스 및 위치 권한 요청 팝업
-    Map<Permission, PermissionStatus> statuses = await [
+  // 워치 연결 버튼: 권한 요청 후 설정 화면으로 이동
+  Future<void> _handleWatchConnection() async {
+    await [
       Permission.bluetoothConnect,
       Permission.bluetoothScan,
-      Permission.location,
+      Permission.location
     ].request();
-
-    // 사용자가 설정을 직접 바꿀 수 있도록 시스템 설정창 열기
-    if (statuses.values.any((s) => s.isDenied || s.isPermanentlyDenied)) {
-      await openAppSettings(); 
-    } else {
-      setState(() => _isWatchConnected = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('워치 연결 권한이 허용되었습니다.'))
-      );
-    }
+    
+    // 설정 화면으로 직접 이동 (사용자가 직접 권한을 켜도록 안내)
+    await openAppSettings(); 
+    
+    setState(() {
+      _isWatchConnected = true;
+      _heartRate = 70; // 연결 후 초기값
+    });
+    _startWatchDataStream();
   }
 
-  // 워치 연결 없이도 심박수가 시뮬레이션되도록 설정
-  void _startBackgroundDataStream() {
-    Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) t.cancel();
+  // 0.5초 단위의 디테일한 데이터 스트림
+  void _startWatchDataStream() {
+    Timer.periodic(const Duration(milliseconds: 500), (t) {
+      if (!mounted || !_isWatchConnected) {
+        t.cancel();
+        return;
+      }
       setState(() {
         if (_isWorkingOut) {
-          // 운동 중에는 더 역동적으로 변화
-          _heartRate = 85 + Random().nextInt(40);
+          _heartRate = 90 + Random().nextInt(50);
           _hrSpots.add(FlSpot(_timerCounter, _heartRate.toDouble()));
-          if (_hrSpots.length > 20) _hrSpots.removeAt(0);
-          if (_heartRate >= 90) _calories += 0.08;
+          if (_hrSpots.length > 50) _hrSpots.removeAt(0); // 촘촘한 그래프 유지
+          if (_heartRate >= 90) _calories += 0.04;
+          _timerCounter += 0.5;
         } else {
-          // 평상시
           _heartRate = 65 + Random().nextInt(10);
         }
       });
     });
   }
 
-  // 워치 연결 없이도 시작/저장 가능
   void _toggleWorkout() {
+    if (!_isWatchConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('워치를 먼저 연결해주세요!'))
+      );
+      return;
+    }
     setState(() {
       _isWorkingOut = !_isWorkingOut;
       if (_isWorkingOut) {
         _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-          setState(() { _duration += const Duration(seconds: 1); _timerCounter++; });
+          setState(() { _duration += const Duration(seconds: 1); });
         });
       } else {
         _timer?.cancel();
@@ -105,43 +102,44 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(child: Image.asset('assets/background.png', fit: BoxFit.cover, 
+          Positioned.fill(
+            child: Image.asset('assets/background.png', fit: BoxFit.cover, 
             errorBuilder: (_,__,___) => Container(color: Colors.black))),
-          
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 15),
+                const SizedBox(height: 10),
                 const Text('Over The Bike Fit', 
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white70)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white54)),
                 
-                // 권한 설정 및 워치 연결 버튼
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: ActionChip(
-                    avatar: Icon(Icons.settings_bluetooth, size: 16, color: _isWatchConnected ? Colors.cyanAccent : Colors.white),
-                    label: Text(_isWatchConnected ? "워치 연동 중" : "권한 설정 및 워치 연결"),
-                    onPressed: _requestAndOpenSettings,
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    avatar: Icon(Icons.bluetooth, size: 14, color: _isWatchConnected ? Colors.cyanAccent : Colors.white),
+                    label: Text(_isWatchConnected ? "워치 데이터 수신 중" : "권한 설정 및 워치 연결", style: const TextStyle(fontSize: 11)),
+                    onPressed: _handleWatchConnection,
+                    backgroundColor: Colors.black.withOpacity(0.6),
                   ),
                 ),
 
-                // 2. 그래프 크기 1/2로 대폭 축소
+                // 그래프: 50% 이상 축소 및 정교한 선 디자인
                 Container(
-                  height: MediaQuery.of(context).size.height * 0.15, // 기존 0.22 -> 0.15로 축소
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  height: MediaQuery.of(context).size.height * 0.12, 
+                  margin: const EdgeInsets.symmetric(horizontal: 50),
                   padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), borderRadius: BorderRadius.circular(10)),
                   child: LineChart(LineChartData(
-                    minY: 50, maxY: 150,
+                    minY: 60, maxY: 160,
                     lineBarsData: [LineChartBarData(
-                      spots: _hrSpots, isCurved: true, 
-                      color: Colors.cyanAccent, barWidth: 2,
+                      spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots,
+                      isCurved: true, curveSmoothness: 0.5,
+                      color: Colors.cyanAccent.withOpacity(0.8),
+                      barWidth: 1.5, // 얇은 선으로 디테일 강조
                       dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(show: true, color: Colors.cyanAccent.withOpacity(0.1))
+                      belowBarData: BarAreaData(show: true, gradient: LinearGradient(
+                        colors: [Colors.cyanAccent.withOpacity(0.2), Colors.transparent],
+                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                      ))
                     )],
                     titlesData: const FlTitlesData(show: false),
                     gridData: const FlGridData(show: false),
@@ -151,34 +149,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                 const Spacer(),
 
-                // 3. 데이터 타일 (버튼 바로 위)
+                // 하단 데이터 수치
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 50),
                   child: GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    childAspectRatio: 3.0,
+                    shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2, childAspectRatio: 3.5,
                     children: [
-                      _compactTile('심박수', '$_heartRate BPM', Icons.favorite, Colors.redAccent),
-                      _compactTile('칼로리', '${_calories.toStringAsFixed(1)} kcal', Icons.local_fire_department, Colors.orangeAccent),
-                      _compactTile('운동 시간', _formatDuration(_duration), Icons.timer, Colors.blueAccent),
-                      _compactTile('상태', _heartRate >= 90 ? '고강도' : '안정', Icons.bolt, Colors.amberAccent),
+                      _tile('심박수', '$_heartRate BPM', Icons.favorite, Colors.redAccent),
+                      _tile('칼로리', '${_calories.toStringAsFixed(1)} kcal', Icons.local_fire_department, Colors.orangeAccent),
+                      _tile('운동 시간', _formatDuration(_duration), Icons.timer, Colors.blueAccent),
+                      _tile('상태', _heartRate >= 90 ? '고강도' : '안정', Icons.bolt, Colors.amberAccent),
                     ],
                   ),
                 ),
 
-                // 4. 하단 버튼 세트 (블랙 그라데이션)
+                // 블랙 그라데이션 버튼
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 30, top: 10),
+                  padding: const EdgeInsets.only(bottom: 30, top: 15),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _miniGradButton(_isWorkingOut ? '정지' : '시작', _isWorkingOut ? Icons.stop : Icons.play_arrow, _toggleWorkout),
-                      _miniGradButton('저장', Icons.save, () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('데이터가 성공적으로 저장되었습니다.')));
-                      }),
-                      _miniGradButton('기록 보기', Icons.history, () {}),
+                      _btn(_isWorkingOut ? '정지' : '시작', _isWorkingOut ? Icons.stop : Icons.play_arrow, _toggleWorkout),
+                      _btn('저장', Icons.save, () {}),
+                      _btn('기록 보기', Icons.history, () {}),
                     ],
                   ),
                 )
@@ -190,43 +184,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _compactTile(String label, String value, IconData icon, Color color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 12),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 10, color: Colors.white54)),
-          ],
-        ),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
+  Widget _tile(String l, String v, IconData i, Color c) => Column(children: [
+    Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, color: c, size: 10), const SizedBox(width: 4), Text(l, style: const TextStyle(fontSize: 9, color: Colors.white38))]),
+    Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+  ]);
 
-  Widget _miniGradButton(String label, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 90, height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(colors: [Color(0xFF3A3A3A), Color(0xFF000000)]),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: Colors.white),
-            Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _btn(String l, IconData i, VoidCallback t) => InkWell(onTap: t, child: Container(
+    width: 85, height: 48,
+    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: const LinearGradient(colors: [Color(0xFF333333), Color(0xFF000000)]), border: Border.all(color: Colors.white10)),
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 14, color: Colors.white), Text(l, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))]),
+  ));
 
   String _formatDuration(Duration d) => "${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}";
 }

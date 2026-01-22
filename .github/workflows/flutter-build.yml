@@ -1,41 +1,31 @@
 name: Flutter APK Build
-
-on:
-  push:
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17
+      - uses: actions/checkout@v4
+      
+      - name: Java 17 Setup
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Flutter Setup
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          cache: true
+          channel: 'stable'
 
-      - name: Install dependencies
+      - name: Build Start
         run: |
           flutter pub get
+          flutter pub run flutter_launcher_icons:main || true
+          flutter build apk --debug --no-tree-shake-icons
 
-      - name: Build release APKs
-        run: flutter build apk --release --split-per-abi --no-tree-shake-icons --verbose
-
-      - name: Upload APKs
-        if: success()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks
+          name: bike-fit-app
           path: build/app/outputs/flutter-apk/*.apk
-          if-no-files-found: warn
-          retention-days: 14

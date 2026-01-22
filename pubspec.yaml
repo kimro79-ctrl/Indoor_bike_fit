@@ -1,5 +1,5 @@
 name: over_the_bike_fit
-description: "Smartwatch Heart Rate Monitor App"
+description: "Professional cycling app"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   flutter_blue_plus: ^1.31.0
   permission_handler: ^11.3.1
-  fl_chart: ^0.66.0 # 그래프를 그리기 위한 필수 패키지
+  fl_chart: ^0.66.0
   cupertino_icons: ^1.0.6
 
 dev_dependencies:
@@ -22,27 +22,15 @@ dev_dependencies:
   flutter_native_splash: "^2.3.10"
 
 flutter_launcher_icons:
-  android: "ic_launcher"
+  android: true
   ios: true
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
-  adaptive_icon_round: "assets/icon/app_icon.png" # 원형 아이콘 강제 적용
-  min_sdk_android: 21
-
-flutter_native_splash:
-  color: "#000000"
-  image: "assets/icon/app_icon.png"
-  android_12:
-    image: "assets/icon/app_icon.png"
-    color: "#000000"
-  android: true
-  ios: true
+  adaptive_icon_round: "assets/icon/app_icon.png" # 원형 아이콘 강제 지정
 
 flutter:
   uses-material-design: true
   assets:
     - assets/background.png
     - assets/icon/app_icon.png
-    - assets/icon/bike_ui_dark.png
-    - assets/icon/heart.png

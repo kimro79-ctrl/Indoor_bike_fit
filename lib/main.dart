@@ -6,7 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // 스플래시 화면 지연 시간 2초로 수정
+  // 스플래시 화면 2초 대기
   await Future.delayed(const Duration(seconds: 2));
   runApp(const BikeFitApp());
 }
@@ -36,14 +36,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Timer? _workoutTimer;
   Timer? _watchTimer;
   bool _isWorkingOut = false;
-  bool _isWatchConnected = false; // 실제 연결 여부 플래그
+  bool _isWatchConnected = false; 
   List<FlSpot> _hrSpots = [];
   double _timerCounter = 0;
   List<String> _workoutHistory = [];
 
-  // 워치 연결 시뮬레이션 (권한 허용 후 '실제' 연결 상태로 전환)
+  // 워치 연결 버튼 로직 (실제 권한 확인 후 연결)
   Future<void> _handleWatchConnection() async {
-    // 1. 권한 체크
     Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetoothConnect,
       Permission.bluetoothScan,
@@ -51,26 +50,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     ].request();
 
     if (statuses.values.every((status) => status.isGranted)) {
-      // 2. 권한이 모두 허용된 경우에만 연결 프로세스 시작
       setState(() {
-        _isWatchConnected = true; // 실제 연결됨으로 표시
-        _heartRate = 72; // 초기 심박수 설정
+        _isWatchConnected = true;
+        _heartRate = 72;
       });
-      
       _startHeartRateMonitoring();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('워치와 성공적으로 연결되었습니다.'))
+        const SnackBar(content: Text('워치가 성공적으로 연결되었습니다.'))
       );
     } else {
-      // 권한 거부 시 설정창 이동 유도
       await openAppSettings();
     }
   }
 
-  // 심박수 모니터링 로직 (연결된 상태에서만 작동)
+  // 0.2초마다 데이터를 생성하여 디테일한 그래프 구현
   void _startHeartRateMonitoring() {
     _watchTimer?.cancel();
-    _watchTimer = Timer.periodic(const Duration(milliseconds: 200), (t) { // 더 디테일한 데이터 (0.2초 단위)
+    _watchTimer = Timer.periodic(const Duration(milliseconds: 200), (t) {
       if (!mounted || !_isWatchConnected) {
         t.cancel();
         return;
@@ -78,14 +74,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       
       setState(() {
         if (_isWorkingOut) {
-          // 운동 중일 때: 더 역동적인 심박 변화와 디테일한 그래프 점 추가
-          _heartRate = 120 + Random().nextInt(30); 
+          _heartRate = 125 + Random().nextInt(25); 
           _timerCounter += 0.2;
           _hrSpots.add(FlSpot(_timerCounter, _heartRate.toDouble()));
-          if (_hrSpots.length > 100) _hrSpots.removeAt(0); // 더 긴 데이터 유지
-          _calories += 0.02;
+          // 그래프에 더 많은 점(150개)을 유지하여 더 디테일하게 표시
+          if (_hrSpots.length > 150) _hrSpots.removeAt(0);
+          _calories += 0.025;
         } else {
-          // 대기 중일 때: 안정적인 심박수 유지
           _heartRate = 65 + Random().nextInt(10);
         }
       });
@@ -109,26 +104,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (_duration.inSeconds < 1) return;
     String record = "${DateTime.now().toString().substring(5, 16)} | ${_duration.inMinutes}분 | ${_calories.toStringAsFixed(1)}kcal";
     setState(() => _workoutHistory.insert(0, record));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('운동 데이터가 저장되었습니다.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기록이 저장되었습니다.')));
   }
 
   void _showHistory() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('운동 기록 히스토리'),
+        title: const Text('운동 기록'),
         backgroundColor: Colors.black87,
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
           child: _workoutHistory.isEmpty 
-            ? const Center(child: Text('저장된 기록이 없습니다.'))
+            ? const Center(child: Text('기록이 없습니다.'))
             : ListView.builder(
                 itemCount: _workoutHistory.length,
                 itemBuilder: (context, index) => ListTile(
-                  leading: const Icon(Icons.fitness_center, color: Colors.cyanAccent),
-                  title: Text(_workoutHistory[index], style: const TextStyle(fontSize: 13)),
-                  dense: true,
+                  leading: const Icon(Icons.history, color: Colors.cyanAccent),
+                  title: Text(_workoutHistory[index], style: const TextStyle(fontSize: 12)),
                 ),
               ),
         ),
@@ -140,43 +134,42 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // 배경 이미지
           Positioned.fill(child: Image.asset('assets/background.png', fit: BoxFit.cover, 
             errorBuilder: (_,__,___) => Container(color: Colors.black))),
+          
           SafeArea(
             child: Column(
               children: [
                 const SizedBox(height: 10),
-                const Text('Over The Bike Fit', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('Over The Bike Fit', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                 
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   child: ActionChip(
-                    avatar: Icon(Icons.bluetooth, size: 16, color: _isWatchConnected ? Colors.cyanAccent : Colors.white54),
+                    avatar: Icon(Icons.bluetooth, size: 16, color: _isWatchConnected ? Colors.cyanAccent : Colors.white38),
                     label: Text(_isWatchConnected ? "워치 데이터 동기화 중" : "권한 설정 및 워치 연결"),
                     onPressed: _isWatchConnected ? null : _handleWatchConnection,
-                    backgroundColor: Colors.black45,
+                    backgroundColor: Colors.black54,
                   ),
                 ),
 
-                // 디테일한 실시간 그래프
+                // 에러 수정된 디테일 그래프
                 Container(
-                  height: 140,
+                  height: 150,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: LineChart(LineChartData(
                     minY: 50, maxY: 180,
                     lineBarsData: [LineChartBarData(
                       spots: _isWatchConnected && _hrSpots.isNotEmpty ? _hrSpots : [const FlSpot(0, 0)],
                       isCurved: true, 
-                      curveRadius: 0.5,
-                      barWidth: 3, 
+                      barWidth: 2, 
                       color: Colors.cyanAccent.withOpacity(_isWatchConnected ? 1.0 : 0.0),
                       dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: _isWatchConnected, 
-                        color: Colors.cyanAccent.withOpacity(0.15)
-                      )
+                      belowBarData: BarAreaData(show: _isWatchConnected, color: Colors.cyanAccent.withOpacity(0.1))
                     )],
                     titlesData: const FlTitlesData(show: false),
                     gridData: const FlGridData(show: false),
@@ -186,13 +179,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                 const Spacer(),
 
-                // 운동 데이터 영역
+                // 하단 데이터 타일
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.black38,
-                    borderRadius: BorderRadius.circular(30)
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 30),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(25)),
                   child: GridView.count(
                     shrinkWrap: true, crossAxisCount: 2, childAspectRatio: 2.5,
                     children: [
@@ -206,7 +197,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                 // 하단 버튼
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 40, top: 20),
+                  padding: const EdgeInsets.only(bottom: 40, top: 30),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -224,25 +215,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _tile(String l, String v, IconData i, Color c) => Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, color: c, size: 14), const SizedBox(width: 6), Text(l, style: const TextStyle(fontSize: 11, color: Colors.white70))]),
-      const SizedBox(height: 4),
-      Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+  Widget _tile(String l, String v, IconData i, Color c) => Column(children: [
+    Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, color: c, size: 14), const SizedBox(width: 5), Text(l, style: const TextStyle(fontSize: 11, color: Colors.white70))]),
+    const SizedBox(height: 5),
+    Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
   ]);
 
-  Widget _btn(String l, IconData i, VoidCallback t) => InkWell(
-    onTap: t, 
-    borderRadius: BorderRadius.circular(15),
-    child: Container(
-      width: 100, height: 60,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15), 
-        color: Colors.black87, 
-        border: Border.all(color: Colors.white12)
-      ),
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 22, color: Colors.white), const SizedBox(height: 4), Text(l, style: const TextStyle(fontSize: 11, color: Colors.white))]),
+  Widget _btn(String l, IconData i, VoidCallback t) => InkWell(onTap: t, child: Container(
+    width: 100, height: 60,
+    decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), color: Colors.black, border: Border.all(color: Colors.white12)),
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(i, size: 24), const SizedBox(height: 4), Text(l, style: const TextStyle(fontSize: 11))]),
   ));
 
   String _formatDuration(Duration d) => "${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}";

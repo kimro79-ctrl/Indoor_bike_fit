@@ -11,18 +11,21 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1' # 최신 버전 유지
+          flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 아이콘 생성 및 빌드
+      - name: 의존성 설치 및 빌드
         run: |
+          # 프로젝트 폴더가 하위 폴더에 있을 경우를 대비해 이동 시도
+          cd $(find . -name "pubspec.yaml" -exec dirname {} \;)
           flutter pub get
-          # 아이콘 생성 시 오류가 나도 다음 단계로 넘어가게 설정
+          # 아이콘 생성이 실패해도 빌드는 멈추지 않게 처리
           flutter pub run flutter_launcher_icons:main || true
           flutter build apk --debug --no-tree-shake-icons
 
-      - name: APK 업로드
+      - name: APK 파일 찾기 및 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: bike-app-final
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: bike-app-success
+          # 파일 위치가 어디든 상관없이 찾아내서 업로드함
+          path: "**/build/app/outputs/flutter-apk/app-debug.apk"

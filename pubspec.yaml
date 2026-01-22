@@ -1,7 +1,5 @@
 name: over_the_bike_fit
-description: "Professional cycling app"
-publish_to: 'none'
-version: 1.0.1+5
+version: 1.0.1+8
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -12,33 +10,24 @@ dependencies:
   flutter_blue_plus: ^1.31.0
   permission_handler: ^11.3.1
   fl_chart: ^0.66.0
-  cupertino_icons: ^1.0.6
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
   flutter_launcher_icons: "^0.13.1"
   flutter_native_splash: "^2.3.10"
 
 flutter_launcher_icons:
-  android: true
-  ios: true
+  android: "ic_launcher"
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
-  adaptive_icon_round: "assets/icon/app_icon.png"
 
 flutter_native_splash:
   color: "#000000"
   image: "assets/icon/app_icon.png"
   android_12:
     image: "assets/icon/app_icon.png"
-    icon_background_color: "#000000"
-  android: true
-  ios: true
 
 flutter:
-  uses-material-design: true
   assets:
     - assets/background.png
     - assets/icon/app_icon.png

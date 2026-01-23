@@ -19,13 +19,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
   flutter_native_splash: ^2.4.0
 
-# 1. 앱 아이콘 설정 (아이콘 폴더 경로 명시)
+# 1. 앱 아이콘 설정 (스크린샷의 icon 폴더 경로 반영)
 flutter_icons:
   android: true
   ios: true
   image_path: "assets/icon/app_icon.png"
 
-# 2. 스플래시 화면 설정 (스플래시 폴더 경로 명시)
+# 2. 스플래시 화면 설정 (스크린샷의 splash 폴더 경로 반영)
 flutter_native_splash:
   color: "#000000"
   image: "assets/splash/splash_screen.png"
@@ -35,7 +35,7 @@ flutter_native_splash:
 flutter:
   uses-material-design: true
 
-  # 3. 에셋 경로 설정 (폴더 구조와 파일명 일치)
+  # 3. 에셋 경로 설정 (폴더 구조 일치화)
   assets:
     - assets/background.png
     - assets/icon/app_icon.png

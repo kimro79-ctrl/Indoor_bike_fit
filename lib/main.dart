@@ -16,7 +16,7 @@ void main() async {
 }
 
 class WorkoutRecord {
-  final String id; // 삭제용 고유 ID
+  final String id; 
   final String date; 
   final int avgHR;
   final double calories;
@@ -43,8 +43,8 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  int _heartRate = 0;
-  int _avgHeartRate = 0;
+  int _heartRate = 95; // 기본값 95로 고정
+  int _avgHeartRate = 95; // 평균값 95로 고정
   double _calories = 0.0;
   Duration _duration = Duration.zero;
   Timer? _workoutTimer;
@@ -82,18 +82,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _decodeHR(List<int> data) {
-    if (data.isEmpty) return;
-    int hr = (data[0] & 0x01) == 0 ? data[1] : (data[2] << 8) | data[1];
-    if (mounted && hr > 0) {
+    // 워치 데이터가 들어오면 이 함수가 실행되지만, 95로 강제 적용합니다.
+    if (mounted && _isWorkingOut) {
       setState(() {
-        _heartRate = hr;
-        if (_isWorkingOut) {
-          _timeCounter += 1;
-          _hrSpots.add(FlSpot(_timeCounter, _heartRate.toDouble()));
-          if (_hrSpots.length > 100) _hrSpots.removeAt(0);
-          _avgHeartRate = (_hrSpots.map((e) => e.y).reduce((a, b) => a + b) / _hrSpots.length).toInt();
-          if (_heartRate >= 100) _calories += (_heartRate * 0.012 * (1/60));
-        }
+        _heartRate = 95; 
+        _timeCounter += 1;
+        _hrSpots.add(FlSpot(_timeCounter, 95.0));
+        if (_hrSpots.length > 100) _hrSpots.removeAt(0);
+        
+        _avgHeartRate = 95;
+        // 💡 칼로리 계산: 심박수 95를 기준으로 매 초 계산
+        _calories += (95 * 0.012 * (1/60)); 
       });
     }
   }
@@ -110,7 +109,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     String dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     setState(() {
-      _records.insert(0, WorkoutRecord(DateTime.now().toString(), dateStr, _avgHeartRate, _calories, _duration));
+      // 💡 저장할 때도 심박수는 무조건 95로 저장
+      _records.insert(0, WorkoutRecord(DateTime.now().toString(), dateStr, 95, _calories, _duration));
     });
     await _saveToPrefs();
     _showSnack("기록이 저장되었습니다!");
@@ -125,7 +125,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     setState(() {
       _isWorkingOut = !_isWorkingOut;
       if (_isWorkingOut) {
-        _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() => _duration += const Duration(seconds: 1)));
+        _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+          setState(() {
+            _duration += const Duration(seconds: 1);
+            // 워치 미연결 상태에서도 운동 중이면 칼로리가 95 기준으로 올라가도록 설정
+            _calories += (95 * 0.012 * (1/60));
+            _heartRate = 95;
+            _avgHeartRate = 95;
+          });
+        });
       } else {
         _workoutTimer?.cancel();
       }
@@ -134,7 +142,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   void _resetWorkout() {
     if (_isWorkingOut) return;
-    setState(() { _duration = Duration.zero; _calories = 0.0; _avgHeartRate = 0; _hrSpots = []; _timeCounter = 0; _heartRate = 0; });
+    setState(() { 
+      _duration = Duration.zero; 
+      _calories = 0.0; 
+      _avgHeartRate = 95; 
+      _hrSpots = []; 
+      _timeCounter = 0; 
+      _heartRate = 95; 
+    });
   }
 
   Future<void> _connectWatch() async {
@@ -166,10 +181,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 💡 배경 밝기 조정: Opacity를 0.8로 높여 훨씬 밝은 배경 구현
           Positioned.fill(child: Opacity(opacity: 0.8, child: Image.asset('assets/background.png', fit: BoxFit.cover, errorBuilder: (c,e,s)=>Container(color: Colors.grey[900])))),
           SafeArea(
-            // 💡 회전 시 에러 방지: SingleChildScrollView 추가
             child: SingleChildScrollView(
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top),
@@ -183,14 +196,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       
                       Container(
                         height: 45, width: double.infinity, margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
-                        child: _hrSpots.isEmpty ? const Center(child: Text("데이터 대기 중...", style: TextStyle(fontSize: 9, color: Colors.white24)))
-                          : LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false),
-                              lineBarsData: [LineChartBarData(spots: _hrSpots, isCurved: true, color: Colors.cyanAccent, barWidth: 2, dotData: const FlDotData(show: false))])),
+                        child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false),
+                          lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 95)] : _hrSpots, isCurved: true, color: Colors.cyanAccent, barWidth: 2, dotData: const FlDotData(show: false))])),
                       ),
 
                       const Spacer(),
                       
-                      // 📊 데이터 배너 (UI 유지)
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
                         padding: const EdgeInsets.symmetric(vertical: 22),
@@ -206,7 +217,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         ),
                       ),
 
-                      // 🔘 하단 버튼 (UI 유지)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 40),
                         child: Row(
@@ -241,6 +251,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _rectBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, behavior: HitTestBehavior.opaque, child: Container(width: 60, height: 60, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 8), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white))]);
 }
 
+// 히스토리 화면은 이전과 동일 (생략 가능하나 완전성을 위해 포함)
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final Function onSync;
@@ -253,7 +264,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // 💡 삭제 팝업 함수
   void _deleteRecord(WorkoutRecord record) {
     showDialog(
       context: context,
@@ -309,10 +319,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 itemBuilder: (c, i) {
                   final r = filteredRecords[i];
                   return ListTile(
-                    onLongPress: () => _deleteRecord(r), // 💡 길게 누르면 삭제
+                    onLongPress: () => _deleteRecord(r), 
                     leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.directions_bike, color: Colors.white, size: 20)),
                     title: Text("${r.date} 라이딩", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                    subtitle: Text("${r.duration.inMinutes}분 | ${r.avgHR}BPM (삭제하려면 길게 누르세요)", style: const TextStyle(color: Colors.black54, fontSize: 11)),
+                    subtitle: Text("${r.duration.inMinutes}분 | ${r.avgHR}BPM", style: const TextStyle(color: Colors.black54, fontSize: 11)),
                     trailing: Text("${r.calories.toStringAsFixed(1)}kcal", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                   );
                 },

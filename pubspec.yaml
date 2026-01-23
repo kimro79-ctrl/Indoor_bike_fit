@@ -1,44 +1,41 @@
-name: bike_fit_app
-description: 실시간 심박수 기반 바이크 핏 애플리케이션
-version: 1.0.0+1
+name: BikeFit Perfect Build
+on: [push, workflow_dispatch]
 
-environment:
-  sdk: '>=3.0.0 <4.0.0'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-dependencies:
-  flutter:
-    sdk: flutter
-  cupertino_icons: ^1.0.2
-  flutter_blue_plus: ^1.31.1
-  permission_handler: ^11.3.0
-  fl_chart: ^0.66.0
+      - name: Java Setup
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_launcher_icons: ^0.13.1
-  flutter_native_splash: ^2.4.0
+      - name: Flutter Setup
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
 
-# 1. 앱 아이콘 설정 (스크린샷의 icon 폴더 경로 반영)
-flutter_icons:
-  android: true
-  ios: true
-  image_path: "assets/icon/app_icon.png"
+      - name: Dependencies & Build Setup
+        run: |
+          # 1. 패키지 다운로드
+          flutter pub get
+          
+          # 2. 권한 추가 (android 폴더는 삭제하지 않음)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />\n    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml || true
 
-# 2. 스플래시 화면 설정 (스크린샷의 splash 폴더 경로 반영)
-flutter_native_splash:
-  color: "#000000"
-  image: "assets/splash/splash_screen.png"
-  android_12:
-    image: "assets/splash/splash_screen.png"
+          # 3. 아이콘 및 스플래시 생성
+          flutter pub run flutter_launcher_icons:main
+          flutter pub run flutter_native_splash:create
+          
+          # 4. APK 빌드
+          flutter build apk --debug --no-tree-shake-icons
 
-flutter:
-  uses-material-design: true
-
-  # 3. 에셋 경로 설정 (폴더 구조 일치화)
-  assets:
-    - assets/background.png
-    - assets/icon/app_icon.png
-    - assets/icon/heart.png
-    - assets/icon/bike_ui_dark.png
-    - assets/splash/splash_screen.png
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: over-the-bike-final
+          path: build/app/outputs/flutter-apk/app-debug.apk

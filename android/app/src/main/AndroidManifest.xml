@@ -1,71 +1,18 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.indoor_fit_app">
-
-    <!-- 필수 권한 설정 -->
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
-        android:name="${applicationName}"
-        android:label="Indoor Fit"
-        android:icon="@mipmap/launcher_icon"
-        android:roundIcon="@mipmap/launcher_icon_round"
-        android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true"
-        android:theme="@style/LaunchTheme">
-
-        <!-- 메인 액티비티 -->
+        android:label="Indoor Fit App"
+        android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-
+            android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
         </activity>
-
-        <!-- 스플래시 및 기본 테마 정의 -->
-        <meta-data
-            android:name="io.flutter.embedding.android.SplashScreenDrawable"
-            android:resource="@drawable/launch_background" />
-
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-
     </application>
-
-    <!-- 테마 및 스플래시 설정 -->
-    <application>
-        <meta-data
-            android:name="android.app.lib_name"
-            android:value="flutter" />
-    </application>
-
-    <resources>
-        <!-- 스플래시 및 런처 테마 통합 -->
-        <style name="LaunchTheme" parent="Theme.Material3.DayNight.NoActionBar">
-            <item name="android:windowSplashScreenBackground">#000000</item>
-            <item name="android:windowSplashScreenAnimatedIcon">@mipmap/launcher_icon</item>
-            <item name="android:windowSplashScreenAnimationDuration">300</item>
-            <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-            <item name="postSplashScreenTheme">@style/NormalTheme</item>
-        </style>
-
-        <style name="NormalTheme" parent="Theme.Material3.DayNight.NoActionBar">
-            <item name="android:windowBackground">@android:color/white</item>
-        </style>
-    </resources>
-
 </manifest>

@@ -152,14 +152,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _handleSaveRecord() {
-    if (_isWorkingOut) {
-      _showToast("운동을 먼저 정지해 주세요.");
-      return;
-    }
-    if (_duration.inSeconds < 5) {
-      _showToast("기록하기에 운동 시간이 너무 짧습니다.");
-      return;
-    }
+    if (_isWorkingOut) { _showToast("운동을 먼저 정지해 주세요."); return; }
+    if (_duration.inSeconds < 5) { _showToast("기록하기에 운동 시간이 너무 짧습니다."); return; }
     String dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     setState(() {
       _records.insert(0, WorkoutRecord(DateTime.now().toString(), dateStr, _avgHeartRate, _calories, _duration));
@@ -189,13 +183,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }).toList()));
   }
 
+  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ⭐ 메인 배경 밝게 조정 (Opacity 0.9)
+          // 배경 밝기 향상 (0.9)
           Positioned.fill(child: Opacity(opacity: 0.9, child: Image.asset('assets/background.png', fit: BoxFit.cover, errorBuilder: (c,e,s)=>Container(color: Colors.black)))),
           SafeArea(
             child: Padding(
@@ -261,8 +257,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   );
 
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
-
-  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); }
 }
 
 class HistoryScreen extends StatefulWidget {
@@ -301,7 +295,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(title: const Text("운동 히스토리", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: Colors.black, elevation: 0, iconTheme: const IconThemeData(color: Colors.white)),
       body: Column(
         children: [
-          // ⭐ 통계 배너 크기 축소 (컴팩트 디자인)
+          // 통계 배너 축소
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
@@ -364,10 +358,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       content: const Text("이 기록을 삭제하시겠습니까?", style: TextStyle(color: Colors.white70)),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("취소", style: TextStyle(color: Colors.white38))),
-        TextButton(onPressed: () {
-          setState(() { widget.records.removeWhere((rec) => rec.id == r.id); });
-          widget.onSync(); Navigator.pop(context);
-        }, child: const Text("삭제", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
+        TextButton(onPressed: () { setState(() { widget.records.removeWhere((rec) => rec.id == r.id); }); widget.onSync(); Navigator.pop(context); }, child: const Text("삭제", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
       ],
     ));
   }

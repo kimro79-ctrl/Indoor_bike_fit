@@ -179,7 +179,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// --- 🔥 [전면수정] 화사한 통계 및 달력 히스토리 화면 ---
+// --- [전면수정] 콤팩트 히스토리 화면 ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final Function onSync;
@@ -192,7 +192,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   DateTime? _selectedDay;
   List<WeightRecord> _weightRecords = [];
   final TextEditingController _weightController = TextEditingController();
-  int _selectedFilter = 0; // 0:주, 1:월, 2:년
+  int _selectedFilter = 1; // 0:일, 1:주, 2:월
 
   @override
   void initState() {
@@ -217,23 +217,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     await prefs.setString('weight_records', jsonEncode(_weightRecords.map((r) => {'date': r.date, 'weight': r.weight}).toList()));
   }
 
-  void _confirmDelete(WorkoutRecord record) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text("기록 삭제", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        content: const Text("이 기록을 삭제하시겠습니까?", style: TextStyle(color: Colors.black87)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("취소", style: TextStyle(color: Colors.grey))),
-          TextButton(onPressed: () {
-            setState(() { widget.records.removeWhere((r) => r.id == record.id); });
-            widget.onSync();
-            Navigator.pop(context);
-          }, child: const Text("삭제", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
-        ],
-      ),
-    );
+  String _getCurrentWeight() {
+    if (_weightRecords.isEmpty) return "0.0";
+    return _weightRecords.last.weight.toStringAsFixed(1);
   }
 
   void _showWeightInputSheet() {
@@ -249,7 +235,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 25),
-            const Text("체중 기록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+            const Text("체중 입력", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
             TextField(
               controller: _weightController,
               autofocus: true,
@@ -290,27 +276,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF1F5F9),
         appBar: AppBar(
-          title: const Text("기록 리포트", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          title: const Text("기록 리포트", style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.transparent, elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black),
         ),
         floatingActionButton: FloatingActionButton(onPressed: _showWeightInputSheet, backgroundColor: Colors.blueAccent, child: const Icon(Icons.monitor_weight, color: Colors.white)),
         body: SingleChildScrollView(
           child: Column(children: [
-            // 1. 체중 그래프 섹션
             _buildChartSection(),
-            
-            // 2. 화사한 달력 섹션
             _buildCalendarSection(),
-
-            // 3. 기록 리스트
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_selectedDay == null ? "전체 운동 기록" : "${DateFormat('M월 d일').format(_selectedDay!)} 기록", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text("${filtered.length}건", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                  Text(_selectedDay == null ? "운동 기록" : "${DateFormat('M월 d일').format(_selectedDay!)}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text("${filtered.length}건", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
             ),
@@ -328,32 +309,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildChartSection() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(15),
+      height: 140, 
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF3B82F6)]),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text("체중 변화 기록", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          Row(children: ["주", "월", "년"].asMap().entries.map((e) => GestureDetector(
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text("현재 체중", style: TextStyle(color: Colors.white70, fontSize: 11)),
+            Text("${_getCurrentWeight()} kg", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ]),
+          Row(children: ["일", "주", "월"].asMap().entries.map((e) => GestureDetector(
             onTap: () => setState(() => _selectedFilter = e.key),
             child: Container(
-              margin: const EdgeInsets.only(left: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: _selectedFilter == e.key ? Colors.white : Colors.white24, borderRadius: BorderRadius.circular(10)),
-              child: Text(e.value, style: TextStyle(color: _selectedFilter == e.key ? Colors.blueAccent : Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              margin: const EdgeInsets.only(left: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: _selectedFilter == e.key ? Colors.white : Colors.white24, borderRadius: BorderRadius.circular(8)),
+              child: Text(e.value, style: TextStyle(color: _selectedFilter == e.key ? Colors.blueAccent : Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           )).toList())
         ]),
-        const SizedBox(height: 25),
-        SizedBox(height: 120, child: LineChart(LineChartData(
+        const Spacer(),
+        SizedBox(height: 60, child: LineChart(LineChartData(
           gridData: FlGridData(show: false), titlesData: FlTitlesData(show: false), borderData: FlBorderData(show: false),
           lineBarsData: [LineChartBarData(
             spots: _weightRecords.isEmpty ? [const FlSpot(0, 0)] : _weightRecords.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.weight)).toList(),
-            isCurved: true, color: Colors.white, barWidth: 3, dotData: FlDotData(show: true),
+            isCurved: true, color: Colors.white, barWidth: 2, dotData: FlDotData(show: _weightRecords.length < 10),
             belowBarData: BarAreaData(show: true, color: Colors.white.withOpacity(0.1)),
           )]
         ))),
@@ -363,39 +347,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildCalendarSection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)]),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)]),
       child: TableCalendar(
         locale: 'ko_KR', firstDay: DateTime.utc(2024, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay,
-        rowHeight: 42,
+        rowHeight: 35, 
+        headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), leftChevronIcon: Icon(Icons.chevron_left, size: 20), rightChevronIcon: Icon(Icons.chevron_right, size: 20)),
         eventLoader: (day) => widget.records.where((r) => r.date == DateFormat('yyyy-MM-dd').format(day)).toList(),
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
         calendarStyle: CalendarStyle(
           selectedDecoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
           todayDecoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
-          todayTextStyle: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+          todayTextStyle: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12),
+          defaultTextStyle: const TextStyle(fontSize: 12),
+          weekendTextStyle: const TextStyle(fontSize: 12, color: Colors.redAccent),
           markerDecoration: const BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle),
+          markerSize: 4,
         ),
-        headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _buildRecordCard(WorkoutRecord r) => GestureDetector(
-    onLongPress: () => _confirmDelete(r),
-    child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)]),
-      child: Row(children: [
-        CircleAvatar(backgroundColor: Color(0xFFF1F5F9), child: const Icon(Icons.directions_bike, color: Colors.blueAccent, size: 20)),
-        const SizedBox(width: 15),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(r.date, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-          Text("${r.duration.inMinutes}분 / ${r.avgHR}bpm", style: const TextStyle(color: Colors.grey, fontSize: 12))
-        ])),
-        Text("${r.calories.toStringAsFixed(1)} kcal", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
-      ]),
-    ),
+  Widget _buildRecordCard(WorkoutRecord r) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+    child: Row(children: [
+      const Icon(Icons.directions_bike, color: Colors.blueAccent, size: 18),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(r.date, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text("${r.duration.inMinutes}분 / ${r.avgHR}bpm", style: const TextStyle(color: Colors.grey, fontSize: 11))
+      ])),
+      Text("${r.calories.toStringAsFixed(1)} kcal", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+    ]),
   );
 }

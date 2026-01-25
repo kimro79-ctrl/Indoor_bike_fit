@@ -52,24 +52,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   List<WorkoutRecord> _records = []; List<ScanResult> _filteredResults = [];
   StreamSubscription? _scanSubscription;
 
-  // ✅ 심박수 구간 색상 로직
-  Color _getHRColor(int hr) {
-    if (hr == 0) return Colors.white60;
-    if (hr < 110) return Colors.lightBlueAccent;
-    if (hr < 136) return Colors.greenAccent;
-    if (hr < 156) return Colors.yellowAccent;
-    if (hr < 176) return Colors.orangeAccent;
+  // ✅ [내부 로직] 현재 심박수 강도에 따른 색상 결정
+  Color _getCurrentStatusColor() {
+    if (_heartRate == 0) return Colors.greenAccent;
+    if (_heartRate < 110) return Colors.lightBlueAccent;
+    if (_heartRate < 136) return Colors.greenAccent;
+    if (_heartRate < 156) return Colors.yellowAccent;
+    if (_heartRate < 176) return Colors.orangeAccent;
     return Colors.redAccent;
   }
 
-  // ✅ 아주 작게 표시될 구간 텍스트
-  String _getHRZoneSmallText(int hr) {
-    if (hr == 0) return "연결 대기";
-    if (hr < 110) return "ZONE 1: 워밍업";
-    if (hr < 136) return "ZONE 2: 지방 연소";
-    if (hr < 156) return "ZONE 3: 유산소";
-    if (hr < 176) return "ZONE 4: 고강도";
-    return "ZONE 5: 최대 강도";
+  // ✅ [내부 로직] 아주 작은 구간 이름 (상단 연결버튼 옆 등에 활용 가능, 현재는 미배치)
+  String _getHRZoneMiniText() {
+    if (_heartRate == 0) return "";
+    if (_heartRate < 110) return "Z1";
+    if (_heartRate < 136) return "Z2";
+    if (_heartRate < 156) return "Z3";
+    if (_heartRate < 176) return "Z4";
+    return "Z5";
   }
 
   @override
@@ -170,33 +170,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _getCurrentStatusColor();
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
         Positioned.fill(child: Opacity(opacity: 0.9, child: Image.asset('assets/background.png', fit: BoxFit.cover, errorBuilder: (c,e,s)=>Container(color: Colors.black)))),
         SafeArea(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [
           const SizedBox(height: 40),
-          const Text('Indoor_fit_app', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1)),
-          const SizedBox(height: 10),
-          GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(20), border: Border.all(color: _getHRColor(_heartRate).withOpacity(0.5))), child: Text(_isWatchConnected ? "Device Connected" : "Connect Watch", style: TextStyle(color: _getHRColor(_heartRate), fontSize: 10, fontWeight: FontWeight.bold)))),
+          const Text('Indoor_fit_app', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 15),
+          GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(15), border: Border.all(color: statusColor)), child: Text("${_isWatchConnected ? "연결됨" : "워치 연결"} ${_getHRZoneMiniText()}", style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)))),
+          const SizedBox(height: 25),
           
-          const Spacer(flex: 2),
+          // ✅ 그래프 선 색상만 유동적으로 변경
+          SizedBox(height: 60, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: statusColor, barWidth: 2, dotData: const FlDotData(show: false))]))),
           
-          // ✅ 심박수 UI 섹션 (수정된 부분)
-          Column(children: [
-            Text(_getHRZoneSmallText(_heartRate), style: TextStyle(color: _getHRColor(_heartRate).withOpacity(0.8), fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 1.2)),
-            const SizedBox(height: 2),
-            Text("$_heartRate", style: TextStyle(fontSize: 84, fontWeight: FontWeight.w900, color: _getHRColor(_heartRate), letterSpacing: -2)),
-            const Text("BPM", style: TextStyle(fontSize: 12, color: Colors.white38, fontWeight: FontWeight.bold)),
-          ]),
+          const Spacer(),
           
-          const Spacer(flex: 1),
+          // ✅ 기존 UI 그대로! 하단 스탯 바의 심박수 색상만 변경
+          Container(padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), borderRadius: BorderRadius.circular(20)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            _statItem("심박수", "$_heartRate", statusColor), 
+            _statItem("평균", "$_avgHeartRate", Colors.redAccent), 
+            _statItem("칼로리", _calories.toStringAsFixed(1), Colors.orangeAccent), 
+            _statItem("시간", "${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}", Colors.blueAccent)
+          ])),
           
-          SizedBox(height: 80, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: _getHRColor(_heartRate), barWidth: 3, dotData: const FlDotData(show: false), belowBarData: BarAreaData(show: true, color: _getHRColor(_heartRate).withOpacity(0.1)))]))),
-          
-          const Spacer(flex: 2),
-          
-          Container(padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(25)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [_statItem("AVG", "$_avgHeartRate", Colors.white70), _statItem("KCAL", _calories.toStringAsFixed(1), Colors.white70), _statItem("TIME", "${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}", Colors.white70)])),
           const SizedBox(height: 30),
           _controlButtons(),
           const SizedBox(height: 40),
@@ -205,21 +204,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(fontSize: 10, color: Colors.white30, fontWeight: FontWeight.bold)), Text(v, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c))]);
+  Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(fontSize: 11, color: Colors.white60)), Text(v, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: c))]);
 
   Widget _controlButtons() => Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-    _actionBtn(_isWorkingOut ? Icons.pause_rounded : Icons.play_arrow_rounded, _isWorkingOut ? "PAUSE" : "START", () {
+    _actionBtn(_isWorkingOut ? Icons.pause : Icons.play_arrow, "시작", () {
       setState(() { _isWorkingOut = !_isWorkingOut; if (_isWorkingOut) { _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) => setState(() { _duration += const Duration(seconds: 1); if (_heartRate >= 95) _calories += 0.003; })); } else { _workoutTimer?.cancel(); } });
     }),
-    const SizedBox(width: 20),
-    _actionBtn(Icons.refresh_rounded, "RESET", () { if(!_isWorkingOut) setState((){_duration=Duration.zero;_calories=0.0;_avgHeartRate=0;_heartRate=0;_hrSpots=[];}); }),
-    const SizedBox(width: 20),
-    _actionBtn(Icons.save_alt_rounded, "SAVE", _handleSaveRecord),
-    const SizedBox(width: 20),
-    _actionBtn(Icons.history_rounded, "LOG", () => Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryScreen(records: _records, onSync: _saveToPrefs)))),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.refresh, "리셋", () { if(!_isWorkingOut) setState((){_duration=Duration.zero;_calories=0.0;_avgHeartRate=0;_heartRate=0;_hrSpots=[];}); }),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.save, "저장", _handleSaveRecord),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.calendar_month, "기록", () => Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryScreen(records: _records, onSync: _saveToPrefs)))),
   ]);
 
-  Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(18)), child: Icon(i, color: Colors.white, size: 28))), const SizedBox(height: 8), Text(l, style: const TextStyle(fontSize: 9, color: Colors.white38, fontWeight: FontWeight.bold))]);
+  Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(15)), child: Icon(i, color: Colors.white))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
 class HistoryScreen extends StatefulWidget {
@@ -235,11 +234,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final filtered = widget.records.where((r) => _selectedDay == null || r.date == DateFormat('yyyy-MM-dd').format(_selectedDay!)).toList();
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(title: const Text("Workout History", style: TextStyle(fontSize: 18)), backgroundColor: Colors.black, centerTitle: true),
+      appBar: AppBar(title: const Text("히스토리"), backgroundColor: Colors.black),
       body: Column(children: [
-        TableCalendar(firstDay: DateTime.utc(2024,1,1), lastDay: DateTime.utc(2030,12,31), focusedDay: _focusedDay, selectedDayPredicate: (d) => isSameDay(_selectedDay, d), onDaySelected: (s, f) => setState(() { _selectedDay = s; _focusedDay = f; }), calendarStyle: const CalendarStyle(markerDecoration: BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle), todayDecoration: BoxDecoration(color: Colors.white12, shape: BoxShape.circle), selectedDecoration: BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle), selectedTextStyle: TextStyle(color: Colors.black))),
-        const Divider(color: Colors.white10),
-        Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (c, i) => ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 25, vertical: 5), title: Text(filtered[i].date, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text("${filtered[i].duration.inMinutes}min / ${filtered[i].avgHR}bpm", style: const TextStyle(color: Colors.white54)), trailing: Text("${filtered[i].calories.toStringAsFixed(1)} kcal", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold))))),
+        TableCalendar(firstDay: DateTime.utc(2024,1,1), lastDay: DateTime.utc(2030,12,31), focusedDay: _focusedDay, selectedDayPredicate: (d) => isSameDay(_selectedDay, d), onDaySelected: (s, f) => setState(() { _selectedDay = s; _focusedDay = f; }), calendarStyle: const CalendarStyle(markerDecoration: BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle))),
+        Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (c, i) => ListTile(title: Text(filtered[i].date), subtitle: Text("${filtered[i].duration.inMinutes}분 / ${filtered[i].avgHR}bpm"), trailing: Text("${filtered[i].calories.toStringAsFixed(1)} kcal")))),
       ]),
     );
   }

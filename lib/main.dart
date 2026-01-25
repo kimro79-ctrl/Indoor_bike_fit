@@ -17,6 +17,7 @@ void main() async {
   runApp(const BikeFitApp());
 }
 
+// --- 모델 클래스 ---
 class WorkoutRecord {
   final String id;
   final String date;
@@ -39,16 +40,13 @@ class BikeFitApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Indoor bike fit',
-      theme: ThemeData(
-        useMaterial3: true, 
-        brightness: Brightness.dark, 
-        scaffoldBackgroundColor: Colors.black
-      ),
+      theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: Colors.black),
       home: const WorkoutScreen(),
     );
   }
 }
 
+// --- 메인 화면 ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -87,17 +85,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         });
         return Container(
           padding: const EdgeInsets.all(20), 
-          height: MediaQuery.of(context).size.height * 0.45,
+          height: MediaQuery.of(context).size.height * 0.4,
           child: Column(children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            const Text("주변 워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 10),
+            const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Expanded(child: _filteredResults.isEmpty 
               ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) 
               : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) => ListTile(
                   leading: const Icon(Icons.watch, color: Colors.blueAccent), 
-                  title: Text(_filteredResults[index].device.platformName, style: const TextStyle(fontSize: 14)), 
+                  title: Text(_filteredResults[index].device.platformName), 
                   onTap: () { Navigator.pop(context); _connectToDevice(_filteredResults[index].device); }
                 ))) 
           ]));
@@ -125,7 +122,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   void _handleSaveRecord() {
     if (_isWorkingOut) { _showToast("운동을 먼저 정지해 주세요."); return; }
-    if (_duration.inSeconds < 5) { _showToast("기록하기에 운동 시간이 너무 짧습니다."); return; }
+    if (_duration.inSeconds < 5) { _showToast("운동 시간이 너무 짧습니다."); return; }
     String dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     setState(() { _records.insert(0, WorkoutRecord(DateTime.now().toString(), dateStr, _avgHeartRate, _calories, _duration)); });
     _saveToPrefs(); _showToast("저장 완료!");
@@ -178,7 +175,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// --- 밝게 수정된 히스토리 화면 ---
+// --- 히스토리 화면 ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records; final Function onSync;
   const HistoryScreen({Key? key, required this.records, required this.onSync}) : super(key: key);
@@ -194,8 +191,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() { super.initState(); _loadWeights(); }
 
   List<WorkoutRecord> _getEventsForDay(DateTime day) {
-    String formattedDay = DateFormat('yyyy-MM-dd').format(day);
-    return widget.records.where((r) => r.date == formattedDay).toList();
+    String formatted = DateFormat('yyyy-MM-dd').format(day);
+    return widget.records.where((r) => r.date == formatted).toList();
   }
 
   Future<void> _loadWeights() async {
@@ -207,118 +204,132 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  // ✅ 부자연스러운 팝업 대신 자연스러운 바텀 시트 체중 입력
+  void _showWeightInputSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF222222),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 25, right: 25, top: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 20),
+            const Text("현재 체중 기록", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _weightController,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+              decoration: const InputDecoration(hintText: "0.0", suffixText: "kg", border: InputBorder.none),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                onPressed: () {
+                  if (_weightController.text.isNotEmpty) {
+                    setState(() {
+                      String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                      _weightRecords.removeWhere((r) => r.date == today);
+                      _weightRecords.insert(0, WeightRecord(today, double.parse(_weightController.text)));
+                    });
+                    _saveWeights(); _weightController.clear(); Navigator.pop(context);
+                  }
+                },
+                child: const Text("기록 완료", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveWeights() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('weight_records', jsonEncode(_weightRecords.map((r) => {'date': r.date, 'weight': r.weight}).toList()));
   }
 
-  void _addWeight() {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF222222),
-      title: const Text("오늘의 체중 입력", style: TextStyle(color: Colors.white, fontSize: 18)),
-      content: TextField(
-        controller: _weightController, 
-        autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true), 
-        style: const TextStyle(color: Colors.white),
-        decoration: const InputDecoration(hintText: "kg 단위", hintStyle: TextStyle(color: Colors.white30), suffixText: "kg")),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("취소")),
-        ElevatedButton(onPressed: () {
-          if (_weightController.text.isNotEmpty) {
-            setState(() {
-              String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-              _weightRecords.removeWhere((r) => r.date == today);
-              _weightRecords.insert(0, WeightRecord(today, double.parse(_weightController.text)));
-            });
-            _saveWeights(); _weightController.clear(); Navigator.pop(context);
-          }
-        }, child: const Text("저장"))
-      ],
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
-    double totalCals = widget.records.where((r) => DateTime.parse(r.id).isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold(0, (sum, r) => sum + r.calories);
+    double weeklyCals = widget.records.where((r) => DateTime.parse(r.id).isAfter(DateTime.now().subtract(const Duration(days: 7)))).fold(0, (sum, r) => sum + r.calories);
     double lastWeight = _weightRecords.isEmpty ? 0.0 : _weightRecords.first.weight;
     final filtered = widget.records.where((r) => _selectedDay == null || r.date == DateFormat('yyyy-MM-dd').format(_selectedDay!)).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212), // ✅ 히스토리 배경을 더 밝은 다크그레이로
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: const Text("운동 히스토리", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
-        backgroundColor: const Color(0xFF121212), 
-        elevation: 0, 
-        iconTheme: const IconThemeData(color: Colors.white)
-      ),
-      floatingActionButton: FloatingActionButton(onPressed: _addWeight, backgroundColor: Colors.blueAccent, child: const Icon(Icons.monitor_weight_outlined, color: Colors.white)),
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(title: const Text("히스토리"), backgroundColor: const Color(0xFF121212), elevation: 0),
+      floatingActionButton: FloatingActionButton(onPressed: _showWeightInputSheet, backgroundColor: Colors.blueAccent, child: const Icon(Icons.add, color: Colors.white)),
       body: Column(children: [
-        // ✅ 배너 배경 밝기 조정
+        // 상단 배너
         Container(
-          margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF222222), 
-            borderRadius: BorderRadius.circular(25), 
-            border: Border.all(color: Colors.white10),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))]
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(20)),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            _sumItem("주간 소모량", "${totalCals.toStringAsFixed(0)} kcal", Colors.orangeAccent),
-            Container(width: 1, height: 30, color: Colors.white10),
-            _sumItem("최근 체중", lastWeight > 0 ? "$lastWeight kg" : "미입력", Colors.blueAccent),
+            _sumItem("주간 소모량", "${weeklyCals.toStringAsFixed(0)} kcal", Colors.orangeAccent),
+            _sumItem("최근 체중", lastWeight > 0 ? "$lastWeight kg" : "-", Colors.blueAccent),
           ]),
         ),
-        // ✅ 달력 밝기 최적화
-        TableCalendar(
-          firstDay: DateTime.utc(2024, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay, locale: 'ko_KR',
-          rowHeight: 48,
-          eventLoader: _getEventsForDay,
-          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-          onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
-          calendarStyle: const CalendarStyle(
-            defaultTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), 
-            weekendTextStyle: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-            outsideTextStyle: TextStyle(color: Colors.white24), 
-            markerDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-            todayDecoration: BoxDecoration(color: Colors.white12, shape: BoxShape.circle),
-            selectedDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+        
+        // ✅ 달력 섹션 디자인 (컬러 수정 및 사이즈 축소)
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1F2E), // ✅ 전용 딥 블루 배경 컬러
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10)
           ),
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: false, 
-            titleCentered: true, 
-            titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          daysOfWeekStyle: const DaysOfWeekStyle(
-            weekdayStyle: TextStyle(color: Colors.white), 
-            weekendStyle: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          child: TableCalendar(
+            firstDay: DateTime.utc(2024, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay, locale: 'ko_KR',
+            rowHeight: 38, // ✅ 달력 행 높이 축소 (전체 사이즈 작아짐)
+            eventLoader: _getEventsForDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
+            calendarStyle: const CalendarStyle(
+              defaultTextStyle: TextStyle(color: Colors.white70, fontSize: 13),
+              weekendTextStyle: TextStyle(color: Colors.redAccent, fontSize: 13),
+              todayDecoration: BoxDecoration(color: Colors.white10, shape: BoxShape.circle),
+              selectedDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+              markerDecoration: BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
+              markerSize: 5, // 점 크기 조절
+            ),
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false, titleCentered: true, 
+              titleTextStyle: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+              leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white54, size: 20),
+              rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+            ),
+          ),
         ),
-        const Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8), child: Divider(color: Colors.white10, thickness: 1)),
-        // ✅ 카드 리스트 밝기 조정
+        
+        const SizedBox(height: 10),
         Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (c, i) => _buildRecordCard(filtered[i]))),
       ]),
     );
   }
 
-  Widget _sumItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(color: Colors.white60, fontSize: 11)), const SizedBox(height: 5), Text(v, style: TextStyle(color: c, fontSize: 18, fontWeight: FontWeight.bold))]);
+  Widget _sumItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 5), Text(v, style: TextStyle(color: c, fontSize: 18, fontWeight: FontWeight.bold))]);
 
-  Widget _buildRecordCard(WorkoutRecord r) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222), // ✅ 카드 배경 살짝 밝게
-        borderRadius: BorderRadius.circular(20), 
-        border: Border.all(color: Colors.white10)
-      ),
-      child: Row(children: [
-        CircleAvatar(backgroundColor: Colors.blueAccent.withOpacity(0.15), child: const Icon(Icons.directions_bike, color: Colors.blueAccent, size: 20)),
-        const SizedBox(width: 15),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(r.date, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)), 
-          Text("${r.duration.inMinutes}분 / ${r.avgHR}bpm", style: const TextStyle(color: Colors.white60, fontSize: 12))
-        ])),
-        Text("${r.calories.toStringAsFixed(1)} kcal", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 15)),
-      ]),
-    );
-  }
+  Widget _buildRecordCard(WorkoutRecord r) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5), padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: const Color(0xFF222222), borderRadius: BorderRadius.circular(15)),
+    child: Row(children: [
+      const Icon(Icons.directions_bike, color: Colors.blueAccent, size: 20),
+      const SizedBox(width: 15),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(r.date, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text("${r.duration.inMinutes}분 / ${r.avgHR}bpm", style: const TextStyle(color: Colors.white54, fontSize: 11))
+      ])),
+      Text("${r.calories.toStringAsFixed(1)} kcal", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+    ]),
+  );
 }

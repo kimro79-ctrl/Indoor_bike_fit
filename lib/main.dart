@@ -17,7 +17,6 @@ void main() async {
   runApp(const BikeFitApp());
 }
 
-// --- 데이터 모델 ---
 class WorkoutRecord {
   final String id;
   final String date;
@@ -43,7 +42,7 @@ class BikeFitApp extends StatelessWidget {
   }
 }
 
-// --- 메인 운동 화면 (기존 UI & 로직 유지) ---
+// --- 메인 운동 화면 (Overflow 오류 수정) ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -71,12 +70,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       final String? res = prefs.getString('workout_records');
       if (res != null) {
         final List<dynamic> decoded = jsonDecode(res);
-        _records = decoded.map((item) => WorkoutRecord(item['id'] ?? DateTime.now().toString(), item['date'], item['avgHR'], item['calories'], Duration(seconds: item['durationSeconds']))).toList();
+        _records = decoded.map((item) => WorkoutRecord(
+          item['id'] ?? DateTime.now().toString(), 
+          item['date'], 
+          item['avgHR'], 
+          (item['calories'] as num).toDouble(), // num 타입을 사용하여 타입 에러 방지
+          Duration(seconds: item['durationSeconds'] ?? 0)
+        )).toList();
       }
     });
   }
 
-  // 워치 연결 로직 (기존 유지)
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
     await [Permission.bluetoothScan, Permission.bluetoothConnect, Permission.location].request();
@@ -137,7 +141,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             setState(() { _goalCalories = double.tryParse(controller.text) ?? 300.0; });
             (await SharedPreferences.getInstance()).setDouble('goal_calories', _goalCalories);
             Navigator.pop(context);
-            _showToast("목표 설정 완료!");
           }, child: const Text("설정 완료", style: TextStyle(fontWeight: FontWeight.bold)))),
         ])),
       ),
@@ -150,31 +153,42 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     double progress = (_calories / _goalCalories).clamp(0.0, 1.0);
     return Scaffold(
+      // ✅ 키보드 대응을 위해 SingleChildScrollView 적용
       body: Stack(children: [
         Positioned.fill(child: Opacity(opacity: 0.8, child: Image.asset('assets/background.png', fit: BoxFit.cover, errorBuilder: (c,e,s)=>Container(color: Colors.black)))),
-        SafeArea(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Column(children: [
-          const SizedBox(height: 40),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Indoor bike fit', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
-            _connectButton(),
-          ]),
-          const SizedBox(height: 25),
-          _chartArea(),
-          const Spacer(),
-          GestureDetector(onTap: _showGoalSettings, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text("CALORIE GOAL", style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
-              Text("${_calories.toInt()} / ${_goalCalories.toInt()} kcal", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-            ]),
-            const SizedBox(height: 10),
-            ClipRRect(borderRadius: BorderRadius.circular(5), child: SizedBox(height: 10, child: LinearProgressIndicator(value: progress, backgroundColor: Colors.white12, color: Colors.greenAccent))),
-          ]))),
-          const SizedBox(height: 20),
-          _dataBanner(),
-          const SizedBox(height: 30),
-          _controlButtons(),
-          const SizedBox(height: 40),
-        ]))),
+        SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
+                child: Column(children: [
+                  const SizedBox(height: 40),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Indoor bike fit', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                    _connectButton(),
+                  ]),
+                  const SizedBox(height: 25),
+                  _chartArea(),
+                  const Spacer(),
+                  GestureDetector(onTap: _showGoalSettings, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Column(children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text("CALORIE GOAL", style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)),
+                      Text("${_calories.toInt()} / ${_goalCalories.toInt()} kcal", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                    ]),
+                    const SizedBox(height: 10),
+                    ClipRRect(borderRadius: BorderRadius.circular(5), child: SizedBox(height: 10, child: LinearProgressIndicator(value: progress, backgroundColor: Colors.white12, color: Colors.greenAccent))),
+                  ]))),
+                  const SizedBox(height: 20),
+                  _dataBanner(),
+                  const SizedBox(height: 30),
+                  _controlButtons(),
+                  const SizedBox(height: 40),
+                ]),
+              ),
+            ),
+          ),
+        ),
       ]),
     );
   }
@@ -220,7 +234,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// --- 🎨 변경된 히스토리 리포트 화면 (일/주/월 분할 및 그래프 팝업) ---
+// --- 히스토리 리포트 화면 (달력 사이즈 압축) ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
@@ -235,7 +249,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   late List<WorkoutRecord> _currentRecords;
 
   @override
-  void initState() { super.initState(); _currentRecords = List.from(widget.records); _selectedDay = _focusedDay; _loadWeight(); }
+  void initState() { 
+    super.initState(); 
+    _currentRecords = List.from(widget.records); 
+    _selectedDay = _focusedDay; 
+    _loadWeight(); 
+  }
 
   Future<void> _loadWeight() async {
     final prefs = await SharedPreferences.getInstance();
@@ -259,13 +278,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final limit = DateTime.now().subtract(Duration(days: days));
     var filtered = _currentRecords.where((r) => DateTime.parse(r.date).isAfter(limit)).toList().reversed.toList();
     showModalBottomSheet(context: context, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), builder: (context) => Container(
-      height: 380, padding: const EdgeInsets.all(30),
+      height: 350, padding: const EdgeInsets.all(25),
       child: Column(children: [
         Text("$title 칼로리 통계", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-        const SizedBox(height: 30),
+        const SizedBox(height: 20),
         Expanded(child: BarChart(BarChartData(
-          barGroups: List.generate(filtered.length, (i) => BarChartGroupData(x: i, barRods: [BarChartRodData(toY: filtered[i].calories, color: color, width: 16, borderRadius: BorderRadius.circular(4))])),
-          borderData: FlBorderData(show: false), titlesData: const FlTitlesData(show: false),
+          barGroups: List.generate(filtered.length, (i) => BarChartGroupData(x: i, barRods: [BarChartRodData(toY: filtered[i].calories, color: color, width: 14, borderRadius: BorderRadius.circular(4))])),
+          borderData: FlBorderData(show: false), titlesData: const FlTitlesData(show: false), gridData: const FlGridData(show: false),
         ))),
       ]),
     ));
@@ -273,7 +292,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _confirmDelete(String id) {
     showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("삭제 확인"), content: const Text("기록을 삭제하시겠습니까?"),
+      title: const Text("삭제 확인"), content: const Text("이 기록을 삭제하시겠습니까?"),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text("취소")),
         TextButton(onPressed: () async {
@@ -297,50 +316,81 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: const Color(0xFFF1F5F9),
         appBar: AppBar(title: const Text("기록 리포트"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
         body: SingleChildScrollView(child: Column(children: [
-          // 1. 체중 설정 바
-          GestureDetector(onTap: _showWeightSetting, child: Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18), decoration: BoxDecoration(color: const Color(0xFF607D8B), borderRadius: BorderRadius.circular(15)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("나의 현재 체중", style: TextStyle(color: Colors.white)), Text("${_weight}kg", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20))]))),
+          GestureDetector(onTap: _showWeightSetting, child: Container(margin: const EdgeInsets.fromLTRB(16, 16, 16, 8), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15), decoration: BoxDecoration(color: const Color(0xFF607D8B), borderRadius: BorderRadius.circular(15)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("나의 현재 체중", style: TextStyle(color: Colors.white)), Text("${_weight}kg", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))]))),
           
-          // 2. 일/주/월 색분할 버튼
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Row(children: [
             _colorBtn("일간", Colors.redAccent, () => _showGraphPopup("일간", 1, Colors.redAccent)),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             _colorBtn("주간", Colors.orangeAccent, () => _showGraphPopup("주간", 7, Colors.orangeAccent)),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             _colorBtn("월간", Colors.blueAccent, () => _showGraphPopup("월간", 30, Colors.blueAccent)),
           ])),
 
-          // 3. 달력
-          Container(margin: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: TableCalendar(
-            locale: 'ko_KR', firstDay: DateTime(2024), lastDay: DateTime(2030), focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
-            eventLoader: (day) => _currentRecords.where((r) => r.date == DateFormat('yyyy-MM-dd').format(day)).toList(),
-            calendarStyle: const CalendarStyle(markerDecoration: BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle), selectedDecoration: BoxDecoration(color: Color(0xFF4285F4), shape: BoxShape.circle)),
-          )),
+          // ✅ 달력 사이즈 축소 및 디자인 최적화
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
+            padding: const EdgeInsets.only(bottom: 5),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), 
+            child: TableCalendar(
+              locale: 'ko_KR', 
+              firstDay: DateTime(2024), 
+              lastDay: DateTime(2030), 
+              focusedDay: _focusedDay,
+              rowHeight: 35, // 더 슬림하게 조정
+              daysOfWeekHeight: 25,
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false, 
+                titleCentered: true,
+                titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                headerPadding: EdgeInsets.symmetric(vertical: 5),
+              ),
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
+              eventLoader: (day) => _currentRecords.where((r) => r.date == DateFormat('yyyy-MM-dd').format(day)).toList(),
+              calendarStyle: const CalendarStyle(
+                markerDecoration: BoxDecoration(color: Colors.orangeAccent, shape: BoxShape.circle), 
+                selectedDecoration: BoxDecoration(color: Color(0xFF4285F4), shape: BoxShape.circle),
+                todayDecoration: BoxDecoration(color: Color(0xFFE3F2FD), shape: BoxShape.circle),
+                todayTextStyle: TextStyle(color: Colors.black),
+                markerSize: 6, 
+              ),
+            ),
+          ),
 
-          // 4. 리스트 (길게 눌러 삭제)
           ListView.builder(
-            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true, 
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: dailyRecords.length,
             itemBuilder: (context, index) {
               final r = dailyRecords[index];
-              return Card(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: ListTile(
-                onLongPress: () => _confirmDelete(r.id),
-                leading: const Icon(Icons.directions_bike, color: Colors.blueAccent),
-                title: Text("${r.calories.toInt()} kcal 소모"),
-                subtitle: Text("${r.duration.inMinutes}분 / ${r.avgHR} bpm"),
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-              ));
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  onLongPress: () => _confirmDelete(r.id),
+                  leading: const Icon(Icons.directions_bike, color: Colors.blueAccent),
+                  title: Text("${r.calories.toInt()} kcal 소모", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Text("${r.duration.inMinutes}분 / ${r.avgHR} bpm", style: const TextStyle(fontSize: 12)),
+                ),
+              );
             },
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
         ])),
       ),
     );
   }
 
   Widget _colorBtn(String label, Color color, VoidCallback onTap) => Expanded(child: ElevatedButton(
-    style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-    onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: color, 
+      foregroundColor: Colors.white, 
+      elevation: 0,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+    onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
   ));
 }

@@ -19,12 +19,11 @@ jobs:
 
       - name: 환경 초기화 및 프로젝트 설정
         run: |
-          # 안드로이드 폴더 재구성
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
           
-          # AndroidManifest.xml 권한 설정 (블루투스 필수 권한 추가)
+          # AndroidManifest.xml 권한 설정
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
@@ -42,17 +41,76 @@ jobs:
           </manifest>
           EOF
 
-      - name: 서명 정보 자동 주입 (JKS 연결)
+      - name: 서명 정보 및 build.gradle 강제 패치
         run: |
-          # android/key.properties 파일 생성
+          # 1. 서명 정보 파일 생성
           echo "storeFile=my-release-key.jks" > android/key.properties
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          
-          # build.gradle에 서명 로직 강제 삽입
-          sed -i 's/buildTypes {/signingConfigs { release { storeFile file("my-release-key.jks") \n storePassword "${System.getenv("KEYSTORE_PASSWORD")}" \n keyAlias "${System.getenv("KEY_ALIAS")}" \n keyPassword "${System.getenv("KEY_PASSWORD")}" } } \n buildTypes {/g' android/app/build.gradle
-          sed -i 's/release {/release { signingConfig signingConfigs.release/g' android/app/build.gradle
+
+          # 2. build.gradle 파일 내용 완전히 새로 작성 (에러 방지용 가장 확실한 방법)
+          cat <<EOF > android/app/build.gradle
+          def g_keystoreProperties = new Properties()
+          def g_keystorePropertiesFile = rootProject.file('key.properties')
+          if (g_keystorePropertiesFile.exists()) {
+              g_keystoreProperties.load(new FileInputStream(g_keystorePropertiesFile))
+          }
+
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          android {
+              namespace "com.overthebike.over_the_bike_fit"
+              compileSdk 34
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+
+              sourceSets {
+                  main.java.srcDirs += 'src/main/kotlin'
+              }
+
+              defaultConfig {
+                  applicationId "com.overthebike.over_the_bike_fit"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0.0"
+                  multiDexEnabled true
+              }
+
+              signingConfigs {
+                  release {
+                      storeFile file('my-release-key.jks')
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      shrinkResources false
+                      minifyEnabled false
+                  }
+              }
+          }
+
+          flutter {
+              source '../..'
+          }
+          EOF
 
       - name: 정식 출시용 AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons

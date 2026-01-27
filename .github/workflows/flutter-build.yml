@@ -41,21 +41,21 @@ jobs:
           </manifest>
           EOF
 
-      - name: 서명 파일(JKS) 현장 생성 및 Gradle 설정
+      - name: 서명 파일 생성 및 Gradle 고정 설정
         run: |
-          # 비밀번호가 6자 미만일 경우를 대비해 뒤에 '123456'을 붙여 강제로 길이를 늘림
-          RAW_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-          SAFE_PASS="${RAW_PASS}123456"
-          
-          # 1. 빌드 서버에서 즉석으로 jks 키 생성
+          # 1. 고정 비밀번호 설정 (Empty name 에러 방지)
+          FIXED_PASS="bikefit123456"
+          FIXED_ALIAS="upload"
+
+          # 2. 빌드 서버에서 jks 키 즉석 생성
           keytool -genkey -v -keystore android/app/my-release-key.jks \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias "${{ secrets.KEY_ALIAS }}" \
-            -storepass "$SAFE_PASS" \
-            -keypass "$SAFE_PASS" \
+            -alias "$FIXED_ALIAS" \
+            -storepass "$FIXED_PASS" \
+            -keypass "$FIXED_PASS" \
             -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, S=Seoul, C=KR"
 
-          # 2. build.gradle 작성 (SDK 35 적용)
+          # 3. build.gradle 작성 (비밀번호를 환경변수 대신 직접 주입하여 에러 차단)
           cat <<EOF > android/app/build.gradle
           plugins {
               id "com.android.application"
@@ -86,9 +86,9 @@ jobs:
               signingConfigs {
                   release {
                       storeFile file('my-release-key.jks')
-                      storePassword "$SAFE_PASS"
-                      keyAlias "${{ secrets.KEY_ALIAS }}"
-                      keyPassword "$SAFE_PASS"
+                      storePassword "$FIXED_PASS"
+                      keyAlias "$FIXED_ALIAS"
+                      keyPassword "$FIXED_PASS"
                   }
               }
 

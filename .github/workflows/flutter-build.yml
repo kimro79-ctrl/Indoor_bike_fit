@@ -1,4 +1,4 @@
-name: BikeFit Final Integrated Build
+name: BikeFit Final Signed AAB Build
 on: [push, workflow_dispatch]
 
 jobs:
@@ -17,24 +17,20 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 환경 재생성 및 리소스 생성
+      - name: 환경 초기화 및 프로젝트 설정
         run: |
-          # 1. 안드로이드 폴더 초기화
+          # 안드로이드 폴더 재구성
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          
-          # 2. 아이콘 및 스플래시 화면 생성 (pubspec.yaml 기반)
           flutter pub get
-          flutter pub run flutter_launcher_icons:main || true
-          flutter pub run flutter_native_splash:create || true
           
-          # 3. AndroidManifest.xml에 권한 및 앱 이름 주입
+          # AndroidManifest.xml 권한 설정 (블루투스 필수 권한 추가)
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <application android:label="Indoor_fit_app" android:icon="@mipmap/launcher_icon">
+              <application android:label="Indoor_fit_app" android:icon="@mipmap/ic_launcher">
                   <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
@@ -46,14 +42,27 @@ jobs:
           </manifest>
           EOF
 
-          # 4. dexBuilder 에러 방지 (용량 제한 해제)
-          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
+      - name: 서명 정보 자동 주입 (JKS 연결)
+        run: |
+          # android/key.properties 파일 생성
+          echo "storeFile=my-release-key.jks" > android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          
+          # build.gradle에 서명 로직 강제 삽입
+          sed -i 's/buildTypes {/signingConfigs { release { storeFile file("my-release-key.jks") \n storePassword "${System.getenv("KEYSTORE_PASSWORD")}" \n keyAlias "${System.getenv("KEY_ALIAS")}" \n keyPassword "${System.getenv("KEY_PASSWORD")}" } } \n buildTypes {/g' android/app/build.gradle
+          sed -i 's/release {/release { signingConfig signingConfigs.release/g' android/app/build.gradle
 
-      - name: 최종 APK 빌드
-        run: flutter build apk --debug --no-tree-shake-icons
+      - name: 정식 출시용 AAB 빌드
+        run: flutter build appbundle --release --no-tree-shake-icons
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: APK 파일 추출
+      - name: 서명된 AAB 파일 추출
         uses: actions/upload-artifact@v4
         with:
-          name: IndoorFit_Final_Version
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: BikeFit_Signed_AAB
+          path: build/app/outputs/bundle/release/app-release.aab

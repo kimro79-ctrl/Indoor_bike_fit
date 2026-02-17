@@ -12,14 +12,12 @@ jobs:
       - name: Setup Java & Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Dart 3.6.0 이상을 포함하는 최신 버전으로 확실히 고정
-          flutter-version: '3.29.0'
+          # 버전을 특정하지 않고 가장 최신 안정 버전을 가져오도록 설정
           channel: 'stable'
 
       - name: Project Initialization
         run: |
-          # 캐시 문제를 방지하고 종속성을 최신으로 강제 업데이트
-          flutter pub pubspec-clean
+          # 문제가 된 pubspec-clean 대신 표준 명령어로 정리
           flutter pub get
           flutter pub upgrade
 
@@ -33,7 +31,7 @@ jobs:
 
       - name: Build AAB
         run: |
-          # 최신 빌드 환경에서 번들 생성
+          # 최신 환경에서 번들 생성
           flutter build appbundle --release \
           --build-number=${{ github.run_number }} \
           --no-tree-shake-icons
@@ -48,5 +46,5 @@ jobs:
       - name: Upload New AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB_Ultimate
+          name: BikeFit_Final_AAB_Success
           path: build/app/outputs/bundle/release/app-release.aab

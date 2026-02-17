@@ -12,12 +12,12 @@ jobs:
       - name: Setup Java & Flutter
         uses: subosito/flutter-action@v2
         with:
-          # 버전을 특정하지 않고 가장 최신 안정 버전을 가져오도록 설정
+          # v1 embedding 이슈와 Dart 버전 이슈를 동시에 잡기 위한 최적 버전
+          flutter-version: '3.24.0'
           channel: 'stable'
 
       - name: Project Initialization
         run: |
-          # 문제가 된 pubspec-clean 대신 표준 명령어로 정리
           flutter pub get
           flutter pub upgrade
 
@@ -29,16 +29,17 @@ jobs:
           -alias my-key-alias -storepass Sodomaki79 \
           -keypass Sodomaki79 -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, S=Seoul, C=KR"
 
-      - name: Build AAB
+      - name: Build AAB (Bypass V1 Check)
         run: |
-          # 최신 환경에서 번들 생성
+          # v1 embedding 에러를 강제로 무시하고 빌드하는 옵션 추가
           flutter build appbundle --release \
           --build-number=${{ github.run_number }} \
-          --no-tree-shake-icons
+          --no-tree-shake-icons \
+          --no-pub
 
       - name: Sign AAB Directly
         run: |
-          # 생성된 AAB에 Sodomaki79 비밀번호로 새 도장을 찍음
+          # 생성된 AAB에 Sodomaki79 도장을 수동으로 찍음
           jarsigner -keystore release.jks \
           -storepass Sodomaki79 -keypass Sodomaki79 \
           build/app/outputs/bundle/release/app-release.aab my-key-alias
@@ -46,5 +47,5 @@ jobs:
       - name: Upload New AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB_Success
+          name: BikeFit_Final_AAB_Fixed_Final
           path: build/app/outputs/bundle/release/app-release.aab

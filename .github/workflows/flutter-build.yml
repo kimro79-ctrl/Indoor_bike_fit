@@ -5,6 +5,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -14,62 +15,37 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 프로젝트 초기화 및 고정 키 강제 연결
+      - name: 의존성 설치
+        run: flutter pub get
+
+      - name: key.properties 확인
         run: |
-          # 1. 사용자님이 올린 키 파일이 있는지 먼저 확인 (없으면 여기서 에러 내고 중단)
-          if [ ! -f "android/app/release.jks" ]; then
-            echo "❌ 에러: android/app/release.jks 파일을 찾을 수 없습니다!"
-            exit 1
+          if [ ! -f "android/key.properties" ]; then
+            echo "storePassword=Sodomaki79" > android/key.properties
+            echo "keyPassword=Sodomaki79" >> android/key.properties
+            echo "keyAlias=my-key-alias" >> android/key.properties
+            echo "storeFile=release.jks" >> android/key.properties
           fi
 
-          # 2. 안드로이드 설정 초기화 시 키 파일은 따로 빼서 보호
-          cp android/app/release.jks ./release.jks_temp
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          
-          # 3. 보호했던 키 파일을 새 폴더로 강제 이동
-          mkdir -p android/app
-          mv ./release.jks_temp android/app/release.jks
-          
-          # 4. 서명 정보(key.properties) 주입 - 별칭(alias) 주의
-          cat <<EOF > android/key.properties
-          storePassword=Sodomaki79
-          keyPassword=Sodomaki79
-          keyAlias=my-key-alias
-          storeFile=release.jks
-          EOF
+      - name: 키 파일 확인
+        run: |
+          if [ ! -f "android/app/release.jks" ]; then
+            echo "❌ release.jks 파일이 없습니다. 업로드 키를 android/app 폴더에 추가하세요."
+            exit 1
+          fi
+          echo "✅ 키 파일 존재 확인 완료"
 
-          # 5. 빌드 설정 수정 (Release 모드 서명 강제)
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
-          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
-          
-          # 6. AndroidManifest 설정 (패키지명 유지)
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
-              <application android:label="Indoor_fit_app">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-          </manifest>
-          EOF
-          
-          flutter pub get
-
-      - name: AAB 빌드 (추가 서명 생성 금지)
+      - name: AAB 빌드 (Play 서명키와 동일한 업로드 키로 서명)
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 최종 결과물 저장
+      - name: 결과물 업로드
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_Verification

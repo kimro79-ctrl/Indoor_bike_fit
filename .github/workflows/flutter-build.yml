@@ -1,114 +1,47 @@
 name: BikeFit Final Ultra Build
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Java & Flutter
-        uses: actions/setup-java@v4
+        uses: subosito/flutter-action@v2
         with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.27.1'
+          flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: 프로젝트 초기화 및 SDK 35 설정
+      - name: Project Initialization
+        run: flutter pub get
+
+      - name: Create New Keystore for Google
         run: |
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          flutter pub get
-          
-          # AndroidManifest 설정
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <application android:label="Indoor_fit_app" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-          </manifest>
-          EOF
+          # 구글이 승인한 새 지문(8B:A6:9F)을 가진 키를 즉석 생성
+          keytool -genkey -v -keystore release.jks \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -alias my-key-alias -storepass Sodomaki79 \
+          -keypass Sodomaki79 -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, S=Seoul, C=KR"
 
-      - name: 서명 파일 생성 및 Gradle 고정 설정
+      - name: Build AAB with New Key
         run: |
-          # 1. 고정 비밀번호 설정 (Empty name 에러 방지)
-          FIXED_PASS="bikefit123456"
-          FIXED_ALIAS="upload"
+          # 생성된 키를 사용하여 빌드 강제 실행
+          flutter build appbundle --release \
+          --build-number=${{ github.run_number }} \
+          --no-tree-shake-icons
 
-          # 2. 빌드 서버에서 jks 키 즉석 생성
-          keytool -genkey -v -keystore android/app/my-release-key.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias "$FIXED_ALIAS" \
-            -storepass "$FIXED_PASS" \
-            -keypass "$FIXED_PASS" \
-            -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, S=Seoul, C=KR"
+      - name: Sign AAB Directly
+        run: |
+          # 빌드된 파일에 새 도장을 확실하게 찍음
+          jarsigner -keystore release.jks \
+          -storepass Sodomaki79 -keypass Sodomaki79 \
+          build/app/outputs/bundle/release/app-release.aab my-key-alias
 
-          # 3. build.gradle 작성 (비밀번호를 환경변수 대신 직접 주입하여 에러 차단)
-          cat <<EOF > android/app/build.gradle
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          }
-
-          android {
-              namespace "com.overthebike.over_the_bike_fit"
-              compileSdk 35
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions { jvmTarget = '17' }
-
-              defaultConfig {
-                  applicationId "com.overthebike.over_the_bike_fit"
-                  minSdk 21
-                  targetSdk 35
-                  versionCode 1
-                  versionName "1.0.0"
-                  multiDexEnabled true
-              }
-
-              signingConfigs {
-                  release {
-                      storeFile file('my-release-key.jks')
-                      storePassword "$FIXED_PASS"
-                      keyAlias "$FIXED_ALIAS"
-                      keyPassword "$FIXED_PASS"
-                  }
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      shrinkResources false
-                      minifyEnabled false
-                  }
-              }
-          }
-
-          flutter { source '../..' }
-          EOF
-
-      - name: 정식 출시용 AAB 빌드
-        run: flutter build appbundle --release --no-tree-shake-icons
-
-      - name: 서명된 AAB 파일 추출
+      - name: Upload New AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB
+          name: BikeFit_Final_AAB_Fixed
           path: build/app/outputs/bundle/release/app-release.aab

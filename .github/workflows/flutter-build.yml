@@ -1,4 +1,4 @@
-name: BikeFit Final Success Build
+name: BikeFit Fresh Key Build
 on:
   workflow_dispatch:
 
@@ -21,32 +21,34 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 기존 에러 파일 강제 삭제 및 PEM 일치 키 생성
+      - name: 완전히 새로운 키와 PEM 생성
         run: |
-          # 1. 에러의 원인이 되는 기존 android 폴더를 완전히 밀어버립니다.
+          # 1. 충돌 방지를 위해 기존 폴더 삭제
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           
-          # 2. android/app 폴더를 깨끗하게 새로 만듭니다.
           mkdir -p android/app
           
-          # 3. 사용자님의 upload_certificate.pem 정보와 100% 일치하게 생성합니다.
-          # CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR (PEM 분석 결과)
+          # 2. 구글이 '중복'이라고 하지 못하게 정보를 살짝 바꾼 새 키 생성
+          # dname 정보를 기존과 다르게 수정했습니다.
           keytool -genkey -v -keystore android/app/release.jks \
           -keyalg RSA -keysize 2048 -validity 10000 \
-          -alias upload-key -storepass Sodomaki80 \
+          -alias fresh-upload-key -storepass Sodomaki80 \
           -keypass Sodomaki80 \
-          -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR"
+          -dname "CN=BikeFitNew, OU=Production, O=OverTheBike, L=Seoul, ST=Seoul, C=KR"
+
+          # 3. 구글 콘솔에 새로 올릴 PEM 파일 추출
+          keytool -export -rfc -alias fresh-upload-key -file android/app/fresh_certificate.pem -keystore android/app/release.jks -storepass Sodomaki80
 
           # 4. 서명 설정 주입
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
-          keyAlias=upload-key
+          keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
 
-          # 5. Gradle 빌드 설정 연결
+          # 5. 빌드 설정 연결
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           flutter pub get
@@ -54,10 +56,11 @@ jobs:
       - name: AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 파일 다운로드★ (JKS와 AAB 포함)
+      - name: ★이걸 다운로드해서 구글에 올리세요★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_REAL_FINAL_PACK
+          name: BikeFit_NEW_KEY_PACK
           path: |
             android/app/release.jks
+            android/app/fresh_certificate.pem
             build/app/outputs/bundle/release/app-release.aab

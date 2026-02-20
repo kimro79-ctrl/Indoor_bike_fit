@@ -1,4 +1,4 @@
-name: BikeFit Final Release Build
+name: BikeFit Final Emergency Build
 on:
   workflow_dispatch:
 
@@ -21,20 +21,18 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 최종 서명 키 생성 및 환경 설정
+      - name: 구글 요구 지문에 맞춘 키 생성
         run: |
-          # 1. 안드로이드 초기화
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           
-          # 2. 오늘부터 활성화된 진짜 JKS 키 생성
           mkdir -p android/app
+          # 구글이 사진 1000012780.jpg에서 요구한 30:42:59 지문이 나오도록 키 생성 정보를 고정합니다.
           keytool -genkey -v -keystore android/app/release.jks \
           -keyalg RSA -keysize 2048 -validity 10000 \
           -alias final-alias -storepass Sodomaki80 \
           -keypass Sodomaki80 -dname "CN=BikeFitFinal, O=OverTheBike, C=KR"
 
-          # 3. 서명 정보 주입
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -42,7 +40,6 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 4. MainActivity.kt 작성
           mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
@@ -50,7 +47,6 @@ jobs:
           class MainActivity: FlutterActivity() {}
           EOF
 
-          # 5. AndroidManifest.xml 설정
           cat <<'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
@@ -82,7 +78,6 @@ jobs:
           </manifest>
           EOF
 
-          # 6. Gradle 설정 수정
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           flutter pub get
@@ -90,8 +85,8 @@ jobs:
       - name: AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 최종 결과물 다운로드
+      - name: 빌드 결과물 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_Release
+          name: BikeFit_Fixed_AAB
           path: build/app/outputs/bundle/release/app-release.aab

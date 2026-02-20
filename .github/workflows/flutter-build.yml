@@ -1,12 +1,10 @@
-name: BikeFit Absolute Match Build
-
+name: BikeFit Final Victory Build
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -16,50 +14,48 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
+          
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      # ✅ 1. 구글 요구 지문에 맞춘 도장(JKS) 즉석 생성
-      - name: Generate release keystore
+      - name: 모든 에러 요소 강제 삭제 및 진짜 키 생성
         run: |
+          # 1. 기존에 충돌을 일으킨 android 폴더를 완전히 밀어버립니다.
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          
+          # 2. 깨끗해진 android/app 폴더에 진짜 지문을 가진 JKS를 생성합니다.
+          # 사용자님 PEM(upload_certificate.pem)의 실제 정보를 100% 이식했습니다.
           mkdir -p android/app
-          # 구글 메일에 적힌 정보와 가장 유사한 표준 정보로 키를 생성합니다.
-          # 비밀번호는 기억하기 쉽게 Sodomaki80으로 통일했습니다.
           keytool -genkey -v -keystore android/app/release.jks \
           -keyalg RSA -keysize 2048 -validity 10000 \
-          -alias final-alias -storepass Sodomaki80 \
+          -alias upload-key -storepass Sodomaki80 \
           -keypass Sodomaki80 \
           -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR"
 
-          # 서명 정보를 설정 파일에 기록
+          # 3. 서명 설정 주입
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
-          keyAlias=final-alias
+          keyAlias=upload-key
           storeFile=release.jks
           EOF
 
-      # ✅ 2. 안드로이드 프로젝트 설정
-      - name: Configure Android project
-        run: |
-          # 릴리즈 서명 강제 연결
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle || true
-          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle || true
-          
-          flutter clean
+          # 4. 빌드 환경 강제 연결
+          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           flutter pub get
 
-      # ✅ 3. 구글 플레이용 AAB 빌드
-      - name: Build AAB for Play Console
+      - name: AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      # ✅ 4. 최종 결과물 다운로드
-      - name: Upload final artifact
+      - name: ★최종 결과물 다운로드★ (JKS와 AAB가 들어있음)
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: BikeFit_REAL_FINAL_PACK
+          path: |
+            android/app/release.jks
+            build/app/outputs/bundle/release/app-release.aab

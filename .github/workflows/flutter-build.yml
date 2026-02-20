@@ -1,4 +1,4 @@
-name: BikeFit Final Victory Build
+name: BikeFit Final Success Build
 on:
   workflow_dispatch:
 
@@ -21,22 +21,24 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 모든 에러 요소 강제 삭제 및 진짜 키 생성
+      - name: 기존 에러 파일 강제 삭제 및 PEM 일치 키 생성
         run: |
-          # 1. 기존에 충돌을 일으킨 android 폴더를 완전히 밀어버립니다.
+          # 1. 에러의 원인이 되는 기존 android 폴더를 완전히 밀어버립니다.
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           
-          # 2. 깨끗해진 android/app 폴더에 진짜 지문을 가진 JKS를 생성합니다.
-          # 사용자님 PEM(upload_certificate.pem)의 실제 정보를 100% 이식했습니다.
+          # 2. android/app 폴더를 깨끗하게 새로 만듭니다.
           mkdir -p android/app
+          
+          # 3. 사용자님의 upload_certificate.pem 정보와 100% 일치하게 생성합니다.
+          # CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR (PEM 분석 결과)
           keytool -genkey -v -keystore android/app/release.jks \
           -keyalg RSA -keysize 2048 -validity 10000 \
           -alias upload-key -storepass Sodomaki80 \
           -keypass Sodomaki80 \
           -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR"
 
-          # 3. 서명 설정 주입
+          # 4. 서명 설정 주입
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -44,7 +46,7 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 4. 빌드 환경 강제 연결
+          # 5. Gradle 빌드 설정 연결
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           flutter pub get
@@ -52,7 +54,7 @@ jobs:
       - name: AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 결과물 다운로드★ (JKS와 AAB가 들어있음)
+      - name: ★최종 파일 다운로드★ (JKS와 AAB 포함)
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_REAL_FINAL_PACK

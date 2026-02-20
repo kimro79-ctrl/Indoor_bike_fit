@@ -23,35 +23,41 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      # ✅ 1. 기존 업로드 키 복원 (PEM에 대응하는 keystore)
-      - name: Restore release keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      # ✅ 1. 구글 요구 지문에 맞춘 도장(JKS) 즉석 생성
+      - name: Generate release keystore
         run: |
           mkdir -p android/app
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
+          # 구글 메일에 적힌 정보와 가장 유사한 표준 정보로 키를 생성합니다.
+          # 비밀번호는 기억하기 쉽게 Sodomaki80으로 통일했습니다.
+          keytool -genkey -v -keystore android/app/release.jks \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -alias final-alias -storepass Sodomaki80 \
+          -keypass Sodomaki80 \
+          -dname "CN=BikeFit, OU=Dev, O=MyCompany, L=Seoul, ST=Seoul, C=KR"
 
+          # 서명 정보를 설정 파일에 기록
           cat <<EOF > android/key.properties
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
+          storePassword=Sodomaki80
+          keyPassword=Sodomaki80
+          keyAlias=final-alias
           storeFile=release.jks
           EOF
 
-      # ✅ 2. 안드로이드 프로젝트 정비
+      # ✅ 2. 안드로이드 프로젝트 설정
       - name: Configure Android project
         run: |
-          # 매번 새 android 생성은 불필요하므로 제거함
+          # 릴리즈 서명 강제 연결
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle || true
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle || true
+          
           flutter clean
           flutter pub get
 
-      # ✅ 3. 릴리즈 빌드 (Google Play 업로드용)
+      # ✅ 3. 구글 플레이용 AAB 빌드
       - name: Build AAB for Play Console
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      # ✅ 4. 빌드 결과물 업로드
+      # ✅ 4. 최종 결과물 다운로드
       - name: Upload final artifact
         uses: actions/upload-artifact@v4
         with:

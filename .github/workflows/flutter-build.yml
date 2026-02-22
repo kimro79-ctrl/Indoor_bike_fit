@@ -5,7 +5,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,16 +21,16 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 안드로이드 최신화 및 진짜 키 연결
+      - name: 진짜 별칭 fresh-upload-key로 서명 강제 연결
         run: |
-          echo "📱 Android V2 구조 갱신"
+          # 1. 낡은 안드로이드 설정 갱신 (v1 에러 방지)
           flutter create . --platforms android --overwrite
 
-          echo "🔑 저장소 루트의 release.jks를 앱 폴더로 복사"
+          # 2. 저장소 루트의 release.jks 복사
           mkdir -p android/app
-          cp release.jks android/app/release.jks || echo "⚠️ release.jks 파일이 루트에 없습니다!"
+          cp release.jks android/app/release.jks
 
-          echo "🔐 [핵심] 분석된 진짜 별칭(fresh-upload-key) 적용"
+          # 3. [분석 결과 반영] 진짜 별칭 입력
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -39,22 +38,17 @@ jobs:
           storeFile=release.jks
           EOF
 
-          echo "🛠 build.gradle 서명 강제 설정"
+          # 4. 서명 설정 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
-
-          echo "⚙️ AndroidX 및 패키지 정리"
-          find android/app/src/main -name "AndroidManifest.xml" -exec sed -i 's/package="com.overthebike.over_the_bike_fit"//g' {} +
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=true" >> android/gradle.properties
 
           flutter pub get
 
       - name: AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 결과물 다운로드★
+      - name: ★이 파일을 다운로드해서 구글에 올리세요★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FINAL_SUCCESS

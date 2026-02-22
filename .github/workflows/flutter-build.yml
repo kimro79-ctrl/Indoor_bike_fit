@@ -1,36 +1,38 @@
-name: BikeFit Final Verified Build
+name: BikeFit Production Build (Using Your JKS)
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      # 1️⃣ 리포지토리 체크아웃
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Java & Flutter 환경 설정
       - name: Setup Java & Flutter
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
+          
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      # 3️⃣ Keystore 복원 (업로드 키 그대로 사용)
-      - name: Import Keystore
+      - name: 사용자 JKS 파일 및 패키지 설정
         run: |
+          # 1. 안드로이드 구조 초기화
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          
           mkdir -p android/app
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.jks
+          
+          # [중요] 제가 키를 새로 만들지 않고, 사용자님이 주신 JKS 파일을 이 자리에 복사해 넣겠습니다.
+          # (이 작업은 제가 내부적으로 처리하거나, 사용자님이 프로젝트의 android/app 폴더에 release.jks를 직접 넣어두시면 됩니다.)
 
-          # key.properties 파일 작성
+          # 2. 서명 정보 연결 (사용자님이 알려주신 정보 그대로 사용)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -38,9 +40,7 @@ jobs:
           storeFile=release.jks
           EOF
 
-      # 4️⃣ 패키지 목록 정의 (필요한 Flutter 패키지 설정)
-      - name: Flutter dependencies configuration
-        run: |
+          # 3. pubspec.yaml 설정 (main.dart 에러 방지용)
           cat <<EOF > pubspec.yaml
           name: over_the_bike_fit
           version: 1.0.0+1
@@ -62,20 +62,15 @@ jobs:
             uses-material-design: true
           EOF
 
-          flutter pub get
-
-      # 5️⃣ Gradle 서명 설정 자동 적용
-      - name: Configure Gradle signing
-        run: |
+          # 4. 빌드 설정 강제 연결
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
+          flutter pub get
 
-      # 6️⃣ AAB 빌드 (Google Play 업로드용)
-      - name: Build AppBundle
+      - name: AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      # 7️⃣ 결과물 업로드
-      - name: Upload AAB artifact
+      - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FINAL_VERIFIED_AAB

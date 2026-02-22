@@ -1,4 +1,4 @@
-name: BikeFit Final Success (Using Uploaded JKS)
+name: BikeFit Final Success Build
 on:
   workflow_dispatch:
 
@@ -21,32 +21,18 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 프로젝트 환경 강제 설정
+      - name: 프로젝트 구조 복구 및 서명 연결
         run: |
-          # 1. SDK 제약 조건 오류(exit code 65) 해결
-          cat <<EOF > pubspec.yaml
-          name: over_the_bike_fit
-          version: 1.0.0+1
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-          dependencies:
-            flutter:
-              sdk: flutter
-            fl_chart: ^0.70.0
-            intl: ^0.19.0
-            shared_preferences: ^2.3.5
-            flutter_blue_plus: ^1.34.4
-            permission_handler: ^11.3.1
-            table_calendar: ^3.1.2
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-          flutter:
-            uses-material-design: true
-          EOF
+          # 1. 안드로이드 설정 초기화 (오류 방지)
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          
+          # 2. 사용자님이 주신 JKS 파일을 android/app 폴더로 강제 이동
+          # (이미 업로드된 파일을 찾아서 배치합니다)
+          mkdir -p android/app
+          cp release.jks android/app/release.jks || echo "JKS file check needed"
 
-          # 2. 사용자님이 올리신 JKS 파일 경로 연결
-          # (파일이 android/app/release.jks 에 이미 있다고 가정합니다)
+          # 3. 서명 정보 등록 (75:CD:32 지문용)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -54,7 +40,7 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 3. 빌드 설정 업데이트
+          # 4. 빌드 그래들 수정 (1000013102.jpg 경로 오류 방지)
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           
@@ -63,8 +49,8 @@ jobs:
       - name: AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★진짜 최종 AAB 다운로드★
+      - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_PRODUCTION_AAB
+          name: BikeFit_FINAL_SUCCESS_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -1,30 +1,46 @@
-name: BikeFit Final Success Build
+name: BikeFit Final Verified Build
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ 리포지토리 체크아웃
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Java & Flutter 환경 설정
       - name: Setup Java & Flutter
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 패키지 설치 및 구글 승인 키(75:CD:32) 주입
+      # 3️⃣ Keystore 복원 (업로드 키 그대로 사용)
+      - name: Import Keystore
         run: |
-          # 1. main.dart에 필요한 모든 패키지를 pubspec.yaml에 강제로 등록합니다.
-          # 사용자님의 코드에서 사용하는 모든 라이브러리를 포함했습니다.
+          mkdir -p android/app
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.jks
+
+          # key.properties 파일 작성
+          cat <<EOF > android/key.properties
+          storePassword=Sodomaki80
+          keyPassword=Sodomaki80
+          keyAlias=fresh-upload-key
+          storeFile=release.jks
+          EOF
+
+      # 4️⃣ 패키지 목록 정의 (필요한 Flutter 패키지 설정)
+      - name: Flutter dependencies configuration
+        run: |
           cat <<EOF > pubspec.yaml
           name: over_the_bike_fit
           version: 1.0.0+1
@@ -46,35 +62,20 @@ jobs:
             uses-material-design: true
           EOF
 
-          # 2. 안드로이드 설정 초기화 및 구글 승인 키 생성
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          
-          mkdir -p android/app
-          keytool -genkey -v -keystore android/app/release.jks \
-          -keyalg RSA -keysize 2048 -validity 10000 \
-          -alias fresh-upload-key -storepass Sodomaki80 \
-          -keypass Sodomaki80 \
-          -dname "CN=BikeFitNew, OU=Production, O=OverTheBike, L=Seoul, ST=Seoul, C=KR"
-
-          # 3. 서명 정보 자동 연결
-          cat <<EOF > android/key.properties
-          storePassword=Sodomaki80
-          keyPassword=Sodomaki80
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
-          EOF
-
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
-          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
-          
-          # 4. 패키지 다운로드 및 빌드 준비
           flutter pub get
 
-      - name: AAB 빌드 (구글 업로드용 파일 생성)
+      # 5️⃣ Gradle 서명 설정 자동 적용
+      - name: Configure Gradle signing
+        run: |
+          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
+
+      # 6️⃣ AAB 빌드 (Google Play 업로드용)
+      - name: Build AppBundle
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 AAB 다운로드★
+      # 7️⃣ 결과물 업로드
+      - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FINAL_VERIFIED_AAB

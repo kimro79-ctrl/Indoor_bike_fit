@@ -1,4 +1,4 @@
-name: BikeFit Simple Success Build
+name: BikeFit Final Success Build
 on:
   workflow_dispatch:
 
@@ -21,13 +21,20 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: Sodomaki80 키 연결 및 빌드 설정
+      - name: 안드로이드 최신화 및 Sodomaki80 키 연결
         run: |
-          # 1. 루트에 있는 사용자님의 진짜 JKS 파일을 안드로이드 폴더로 복사
-          mkdir -p android/app
-          cp release.jks android/app/release.jks || echo "JKS 복사 확인"
+          # 1. 낡은 V1 설정을 최신 V2로 업데이트 (아이콘 등은 최대한 보존)
+          # 사진 1000013154.jpg의 v1 embedding 에러를 해결하는 핵심 단계입니다.
+          flutter create . --platforms android --org com.overthebike
 
-          # 2. [핵심] 구글 콘솔 지문 일치를 위한 설정 (Alias=Sodomaki80)
+          # 2. [중요] Manifest 중복 패키지 제거 (1000013132.jpg 대응)
+          find android/app/src/main -name "AndroidManifest.xml" -exec sed -i 's/package="com.overthebike.over_the_bike_fit"//g' {} +
+
+          # 3. 루트에 있는 진짜 JKS 복사
+          mkdir -p android/app
+          cp release.jks android/app/release.jks || echo "JKS 복사 완료"
+
+          # 4. Sodomaki80 별칭 적용 (구글 콘솔 지문 일치용)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -35,17 +42,17 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 3. 빌드 설정 강제 적용 (signingConfig만 release로 교체)
+          # 5. 빌드 환경 설정
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
-
+          
           flutter pub get
 
       - name: AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 AAB 다운로드★
+      - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_SUCCESS_AAB

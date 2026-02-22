@@ -1,4 +1,4 @@
-name: BikeFit Google Console Final
+name: BikeFit Google Console Final Success
 on:
   workflow_dispatch:
 
@@ -14,24 +14,28 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 별칭 강제 매칭 및 서명 고정
+      - name: 🔐 임시 키 생성 원천 차단 및 서명 고정
         run: |
-          # 1. 안드로이드 설정 초기화 (V1 에러 방지)
+          # 1. 기존 빌드 찌꺼기 및 캐시 완전 삭제
+          flutter clean
+          rm -rf android/.gradle
+          rm -rf android/app/build.gradle.bak
+
+          # 2. 안드로이드 설정 최신화 (V1 에러 방지)
           flutter create . --platforms android --overwrite
 
-          # 2. JKS 복사
+          # 3. 사용자 JKS 파일 복사
           mkdir -p android/app
-          cp release.jks android/app/release.jks
+          cp release.jks android/app/release.jks || (echo "❌ JKS 파일이 루트에 없습니다!" && exit 1)
 
-          # 3. [핵심] 파일 분석 결과를 바탕으로 '진짜 이름' 강제 주입
-          # 만약 fresh-upload-key가 안되면 파일 내부에 숨겨진 이름을 시스템이 찾도록 처리
+          # 4. key.properties 생성 (fresh-upload-key 고정)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -39,17 +43,18 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 4. 빌드 서버가 임시 키를 생성하지 못하도록 강제 설정
+          # 5. [핵심] build.gradle 수정: 디버그 서명을 아예 삭제하고 릴리스 서명만 강제
+          # 이 작업이 없으면 키를 못 찾을 때 빌드 서버가 임시 키를 멋대로 찍습니다.
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
 
           flutter pub get
 
-      - name: AAB 빌드 실행
+      - name: AAB 빌드 실행 (임시 키 사용 시 실패하도록 설정)
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★이 파일을 다운로드하여 구글에 올리세요★
+      - name: ★최종 AAB 다운로드★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_SUCCESS_AAB

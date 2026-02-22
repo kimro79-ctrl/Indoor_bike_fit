@@ -21,28 +21,29 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 기존 JKS 키 연결 및 서명 설정
+      - name: 안드로이드 최신화 및 서명 설정
         run: |
-          echo "🔑 release.jks 복사 중..."
+          # 1. v1 embedding 오류 해결을 위해 안드로이드 설정 최신화
+          # 기존 파일을 지우지 않고 규격만 업데이트합니다.
+          flutter create . --platforms android
+          
+          # 2. 사용자 JKS 복사
           mkdir -p android/app
-          # 루트에 있는 release.jks를 복사
-          cp release.jks android/app/release.jks || echo "⚠️ JKS 파일 복사 확인 필요"
+          cp release.jks android/app/release.jks || echo "JKS 파일 확인 필요"
 
-          echo "🧩 key.properties 생성"
-          # storeFile 경로를 app/release.jks로 적어주는 것이 가장 안전합니다.
+          # 3. 서명 정보 주입 (75:CD:32 지문용)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
-          storeFile=app/release.jks
+          storeFile=release.jks
           EOF
 
-          echo "🛠 build.gradle 서명 설정 수정"
+          # 4. 빌드 설정 강제 적용
           if [ -f "android/app/build.gradle" ]; then
-            # debug 서명을 release 서명으로 강제 교체
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
-
+          
           flutter pub get
 
       - name: AAB 빌드 실행

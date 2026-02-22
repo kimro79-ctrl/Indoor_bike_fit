@@ -1,4 +1,4 @@
-name: BikeFit Google Console Final Ultimate Fixed 2026
+name: BikeFit Ultimate Fix - Force Signing 2026
 on:
   workflow_dispatch:
 
@@ -21,10 +21,10 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 서명 설정 강제 재정의 + 모든 캐시 제거
+      - name: Force Clean & Force Signing Config Override
         run: |
           flutter clean
-          rm -rf $HOME/.gradle/caches/ $HOME/.pub-cache android/.gradle android/app/build android/app/.gradle
+          rm -rf $HOME/.gradle $HOME/.pub-cache android/.gradle android/app/build android/app/.gradle
 
           flutter pub cache repair
           flutter pub get
@@ -41,29 +41,38 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 기존 signingConfigs 전체 삭제 후 새로 삽입 (fallback 완전 차단)
-          sed -i '/signingConfigs {/,/}/d' android/app/build.gradle
-          sed -i '/android {/a signingConfigs {\n    release {\n        storeFile file("release.jks")\n        storePassword "Sodomaki80"\n        keyAlias "fresh-upload-key"\n        keyPassword "Sodomaki80"\n    }\n}' android/app/build.gradle
+          # signingConfigs 전체 삭제 후 새로 삽입 (fallback 방지 최강)
+          sed -i '/signingConfigs {/,/}/d' android/app/build.gradle || true
+          sed -i '/android {/a \
+          signingConfigs {\
+              release {\
+                  storeFile file("release.jks")\
+                  storePassword "Sodomaki80"\
+                  keyAlias "fresh-upload-key"\
+                  keyPassword "Sodomaki80"\
+              }\
+          }' android/app/build.gradle
 
           sed -i '/buildTypes {/a \        signingConfig signingConfigs.release' android/app/build.gradle
 
-          echo "=== 최종 signingConfigs 확인 ==="
-          grep -A 30 signingConfigs android/app/build.gradle
+          # 로그로 확인
+          echo "key.properties:"
+          cat android/key.properties
+          echo "build.gradle signing:"
+          grep -A 40 signingConfigs android/app/build.gradle
 
-      - name: AAB 빌드 + 서명 로그 추출
-        run: |
-          flutter build appbundle --release --no-tree-shake-icons --verbose > build_log.txt 2>&1
-          grep -i "signing\|keystore\|alias\|fresh-upload-key\|validateSigning\|release" build_log.txt || echo "서명 로그 미검출"
+      - name: Build AAB with Verbose
+        run: flutter build appbundle --release --no-tree-shake-icons --verbose > build_log.txt 2>&1 && grep -i "signing\|alias\|keystore\|validateSigning\|fresh" build_log.txt
 
-      - name: AAB 아티팩트
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_FINAL_AAB
+          name: BikeFit_Ultimate_AAB
           path: build/app/outputs/bundle/release/app-release.aab
 
-      - name: 로그 아티팩트
+      - name: Upload Logs (Always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Debug_Logs
+          name: Build_Debug_Logs
           path: build_log.txt

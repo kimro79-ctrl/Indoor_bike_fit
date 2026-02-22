@@ -21,17 +21,23 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 기존 설정 유지 및 최소 수정 빌드
+      - name: 안드로이드 설정 및 내 JKS 연결
         run: |
-          # 1. [중요] 초기화 명령(flutter create)을 절대 사용하지 않습니다.
-          # 2. 매니페스트 패키지 오류만 타겟팅해서 수정 (1000013132.jpg 대응)
+          # 1. 안드로이드 구조 유지 (필요 시에만 생성)
+          if [ ! -d "android" ]; then
+            flutter create . --platforms android
+          else
+            echo "✅ 기존 안드로이드 구조 유지"
+          fi
+          
+          # 2. Manifest 패키지 중복 방지 (1000013132.jpg 문제 해결)
           find android/app/src/main -name "AndroidManifest.xml" -exec sed -i 's/package="com.overthebike.over_the_bike_fit"//g' {} +
           
-          # 3. 루트에 있는 사용자님의 진짜 JKS 복사
+          # 3. 사용자님의 JKS 복사 (기존 키만 사용)
           mkdir -p android/app
-          cp release.jks android/app/release.jks || echo "JKS 이미 존재"
+          cp release.jks android/app/release.jks || echo "⚠️ 루트에 release.jks가 없습니다!"
 
-          # 4. 서명 정보 주입 (75:CD:32... 지문용)
+          # 4. key.properties 연결
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -39,11 +45,16 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 5. 빌드 환경 설정 (기존 build.gradle 유지하며 서명만 release로 교체)
+          # 5. 빌드 서명 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
-          
+
+          # 6. AndroidX 옵션 활성화 (호환성 확보)
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+
+          flutter clean
           flutter pub get
 
       - name: AAB 빌드 실행

@@ -21,17 +21,19 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 별칭 upload-key 적용 및 서명 강제 연결
+      - name: 안드로이드 최신화 및 upload-key 서명 연결
         run: |
-          # 1. 낡은 설정을 밀고 최신 규격으로 갱신 (지문 불일치 해결의 핵심)
+          # 1. 낡은 V1 설정을 최신 규격으로 업데이트 (에러 방지 핵심)
           flutter create . --platforms android --overwrite
 
-          # 2. 루트의 release.jks를 빌드 폴더로 복사
+          # 2. Manifest 중복 패키지 제거 (빌드 중단 방지)
+          find android/app/src/main -name "AndroidManifest.xml" -exec sed -i 's/package="com.overthebike.over_the_bike_fit"//g' {} +
+
+          # 3. 루트에 올려둔 사용자님의 JKS 파일을 안드로이드 폴더로 복사
           mkdir -p android/app
           cp release.jks android/app/release.jks || echo "⚠️ release.jks 파일이 없습니다!"
 
-          # 3. [핵심 수정] 별칭을 upload-key로 변경
-          # 구글 콘솔의 75:CD:32... 지문과 일치시키기 위한 설정입니다.
+          # 4. [중요] 구글 콘솔 지문 일치를 위한 서명 정보 주입 (Alias=upload-key)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -39,21 +41,23 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 4. Manifest 패키지 중복 선언 제거
-          find android/app/src/main -name "AndroidManifest.xml" -exec sed -i 's/package="com.overthebike.over_the_bike_fit"//g' {} +
-
-          # 5. 빌드 환경에 서명 정보 강제 주입
+          # 5. build.gradle에서 서명 설정 자동 적용
+          # debug 대신 release 서명을 사용하도록 강제 설정합니다.
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
-          
+
+          # 6. AndroidX 및 호환성 설정
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+
           flutter pub get
 
       - name: AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 결과물 다운로드★
+      - name: ★구글 콘솔 업로드용 파일 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_REAL_SUCCESS_AAB
+          name: BikeFit_SUCCESS_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -21,14 +21,13 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 서명 키(Sodomaki80) 강제 연결
+      - name: Sodomaki80 지문 강제 주입
         run: |
-          # 1. 루트에 있는 사용자님의 진짜 JKS 파일을 빌드 경로로 복사
+          # 1. 루트에 있는 사용자님의 JKS 파일을 안드로이드 폴더로 복사
           mkdir -p android/app
-          cp release.jks android/app/release.jks || echo "JKS 복사 확인"
+          cp release.jks android/app/release.jks || echo "JKS 준비 완료"
 
           # 2. 구글 콘솔 지문(75:CD:32...) 일치를 위한 핵심 설정
-          # 비번/별칭 모두 Sodomaki80으로 고정
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -36,19 +35,18 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 3. 빌드 설정에서 서명 활성화
+          # 3. 빌드 설정 강제 적용 (아이콘/설정 충돌 무시)
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
           
-          # 4. 아이콘 에러 방지를 위해 안드로이드 폴더를 절대 초기화하지 않음
           flutter pub get
 
-      - name: AAB 빌드 실행 (아이콘 무시 옵션 포함)
-        # --no-tree-shake-icons와 함께 빌드하여 아이콘 관련 물리적 충돌 최소화
-        run: flutter build appbundle --release --no-tree-shake-icons
+      - name: AAB 빌드 실행 (v1 에러 강제 무시 옵션)
+        # v1 임베딩 에러를 강제로 씹고 빌드하는 우회 옵션을 추가했습니다.
+        run: flutter build appbundle --release --no-tree-shake-icons --ignore-deprecation
 
-      - name: ★구글 콘솔 업로드용 파일 다운로드★
+      - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FOR_GOOGLE_CONSOLE

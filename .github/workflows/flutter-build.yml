@@ -1,4 +1,4 @@
-name: BikeFit Simple Build
+name: BikeFit Final Success Build
 on:
   workflow_dispatch:
 
@@ -21,37 +21,35 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 내 JKS 키로 빌드 설정
+      - name: 기존 JKS 키 연결 및 서명 설정
         run: |
-          # 1. 안드로이드 설정 초기화
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          
-          # 2. 사용자님이 올린 release.jks 파일을 빌드 위치로 강제 복사
+          echo "🔑 release.jks 복사 중..."
           mkdir -p android/app
-          find . -name "release.jks" -exec cp {} android/app/release.jks \;
-          
-          # 3. 서명 정보 연결 (사용자님 키 정보 그대로)
+          # 루트에 있는 release.jks를 복사
+          cp release.jks android/app/release.jks || echo "⚠️ JKS 파일 복사 확인 필요"
+
+          echo "🧩 key.properties 생성"
+          # storeFile 경로를 app/release.jks로 적어주는 것이 가장 안전합니다.
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
-          storeFile=release.jks
+          storeFile=app/release.jks
           EOF
 
-          # 4. 빌드 설정 강제 적용
+          echo "🛠 build.gradle 서명 설정 수정"
           if [ -f "android/app/build.gradle" ]; then
+            # debug 서명을 release 서명으로 강제 교체
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
-            sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
           fi
-          
+
           flutter pub get
 
       - name: AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★결과물 다운로드★
+      - name: ★최종 AAB 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB
+          name: BikeFit_SUCCESS_AAB
           path: build/app/outputs/bundle/release/app-release.aab

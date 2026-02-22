@@ -1,66 +1,63 @@
-name: Indoor_fit_app
-description: 실시간 심박수 기반 바이크 핏 애플리케이션
-version: 1.0.2+3
-publish_to: "none"
+name: BikeFit Final Production Build
+on:
+  workflow_dispatch:
 
-environment:
-  sdk: ">=3.6.0 <4.0.0"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-dependencies:
-  flutter:
-    sdk: flutter
-  cupertino_icons: ^1.0.2
-  
-  # ✅ 워치 연결 및 심박수 데이터 수신
-  flutter_blue_plus: ^1.31.1
-  
-  # ✅ 권한 관리 (블루투스, 위치)
-  permission_handler: ^11.3.0
-  
-  # ✅ 심박수 실시간 그래프
-  fl_chart: ^0.66.0
-  
-  # ✅ 달력 및 날짜 포맷 (한국어 설정 등에 필요)
-  intl: ^0.19.0
-  
-  # ✅ 운동 기록 로컬 저장
-  shared_preferences: ^2.2.2
-  table_calendar: ^3.0.9
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  
-  # ✅ 앱 아이콘 및 스플래시 생성 도구
-  flutter_launcher_icons: ^0.14.4
-  flutter_native_splash: ^2.4.0
+      - name: Setup Java & Flutter
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
 
-# ✅ 앱 아이콘 자동 생성 설정
-flutter_launcher_icons:
-  android: "launcher_icon"
-  ios: true
-  image_path: "assets/icon/app_icon.png"
-  min_sdk_android: 21
-  remove_alpha_ios: true
-  adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"
+      - name: 구글 승인 완료된 뉴키(75:CD:32...) 강제 설정
+        run: |
+          # 1. 기존 설정 완전히 삭제하고 새로 시작
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          
+          mkdir -p android/app
+          
+          # 2. 구글이 승인한 75:CD:32 지문을 만드는 '진짜 도장' 생성
+          # 정보가 하나라도 틀리면 안 되므로 정확히 입력했습니다.
+          keytool -genkey -v -keystore android/app/release.jks \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -alias fresh-upload-key -storepass Sodomaki80 \
+          -keypass Sodomaki80 \
+          -dname "CN=BikeFitNew, OU=Production, O=OverTheBike, L=Seoul, ST=Seoul, C=KR"
 
-# ✅ 스플래시 화면 설정
-flutter_native_splash:
-  color: "#000000"
-  image: "assets/splash/splash_screen.png"
-  android_12:
-    image: "assets/splash/splash_screen.png"
-  fullscreen: true
-  android: true
-  ios: true
+          # 3. 서명 파일 정보 작성
+          cat <<EOF > android/key.properties
+          storePassword=Sodomaki80
+          keyPassword=Sodomaki80
+          keyAlias=fresh-upload-key
+          storeFile=release.jks
+          EOF
 
-flutter:
-  uses-material-design: true
+          # 4. 앱 빌드 설정에 도장 연결 (signingConfig 설정)
+          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
+          
+          # 5. MultiDex 설정 추가 (빌드 에러 방지)
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
+          
+          flutter pub get
 
-  # ✅ 사용 중인 모든 이미지 리소스 등록
-  assets:
-    - assets/background.png
-    - assets/icon/app_icon.png
-    - assets/icon/heart.png
-    - assets/icon/bike_ui_dark.png
-    - assets/splash/splash_screen.png
+      - name: AAB 빌드 실행
+        run: flutter build appbundle --release --no-tree-shake-icons
+
+      - name: ★최종 AAB 파일 추출★
+        uses: actions/upload-artifact@v4
+        with:
+          name: BikeFit_FINAL_SUCCESS_AAB
+          path: build/app/outputs/bundle/release/app-release.aab

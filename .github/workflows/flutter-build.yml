@@ -1,4 +1,4 @@
-name: BikeFit Ultimate Fix - Force Signing 2026
+name: BikeFit Final Signing Fix
 on:
   workflow_dispatch:
 
@@ -14,26 +14,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
-          channel: 'stable'
 
-      - name: Force Clean & Force Signing Config Override
+      - name: Hard Reset & Force Signing
         run: |
+          # 1. 이전 찌꺼기 제거
           flutter clean
-          rm -rf $HOME/.gradle $HOME/.pub-cache android/.gradle android/app/build android/app/.gradle
-
-          flutter pub cache repair
-          flutter pub get
-
-          flutter create . --platforms android --overwrite
-
+          rm -f android/key.properties
+          
+          # 2. 루트에 있는 release.jks를 안드로이드 앱 폴더로 강제 복사
           mkdir -p android/app
           cp release.jks android/app/release.jks || exit 1
 
+          # 3. key.properties 설정 강제 생성
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -41,38 +36,19 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # signingConfigs 전체 삭제 후 새로 삽입 (fallback 방지 최강)
-          sed -i '/signingConfigs {/,/}/d' android/app/build.gradle || true
-          sed -i '/android {/a \
-          signingConfigs {\
-              release {\
-                  storeFile file("release.jks")\
-                  storePassword "Sodomaki80"\
-                  keyAlias "fresh-upload-key"\
-                  keyPassword "Sodomaki80"\
-              }\
-          }' android/app/build.gradle
+      - name: Build App Bundle
+        run: |
+          flutter pub get
+          flutter build appbundle --release --verbose
 
-          sed -i '/buildTypes {/a \        signingConfig signingConfigs.release' android/app/build.gradle
-
-          # 로그로 확인
-          echo "key.properties:"
-          cat android/key.properties
-          echo "build.gradle signing:"
-          grep -A 40 signingConfigs android/app/build.gradle
-
-      - name: Build AAB with Verbose
-        run: flutter build appbundle --release --no-tree-shake-icons --verbose > build_log.txt 2>&1 && grep -i "signing\|alias\|keystore\|validateSigning\|fresh" build_log.txt
+      - name: 🚨 지문 검증 (이걸 확인하세요)
+        run: |
+          echo "현재 빌드된 파일의 SHA1 지문입니다:"
+          keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
+          echo "위 값이 구글 콘솔의 75:CD...와 똑같아야 합니다."
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Ultimate_AAB
+          name: BikeFit_Final_AAB
           path: build/app/outputs/bundle/release/app-release.aab
-
-      - name: Upload Logs (Always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Build_Debug_Logs
-          path: build_log.txt

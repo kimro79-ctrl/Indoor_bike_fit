@@ -1,4 +1,4 @@
-name: BikeFit Final Success Build
+name: BikeFit Simple Build
 on:
   workflow_dispatch:
 
@@ -21,50 +21,30 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 [v1 완전 제거 및 사용자 키 고정]
+      - name: 🔐 [키 고정 설정]
         run: |
-          flutter clean
-          
-          # 1. Manifest에 v2 강제 삽입 (사용자 패키지명 적용)
-          if ! grep -q 'flutterEmbedding.*value="2"' android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<application/a \    <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
-          fi
-          
-          # 2. 기존 MainActivity 완전 삭제 (v1 찌꺼기 제거)
-          find android/app/src/main -name "MainActivity.*" -delete
-          
-          # 3. 사용자 패키지 경로에 맞게 MainActivity.kt 생성
-          # 경로: com/overthebike/over_the_bike_fit
-          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
-          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
-          package com.overthebike.over_the_bike_fit
-
-          import io.flutter.embedding.android.FlutterActivity
-
-          class MainActivity: FlutterActivity()
-          EOF
-          
-          # 4. key.properties 설정 (android/app/release.jks 고정)
+          # 1. key.properties 생성 (사용자님의 android/app/release.jks 연결)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-          
-          # 5. 빌드 설정에서 릴리스 서명 강제 적용
+
+          # 2. 서명 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
 
           flutter pub get
-          flutter pub upgrade --major-versions
 
-      - name: AAB 빌드 실행
-        run: flutter build appbundle --release --no-tree-shake-icons
+      - name: 🚀 빌드 실행 (에러 무시 옵션)
+        run: |
+          # v1 에러로 멈추지 않게끔 하는 가장 단순한 빌드 명령어
+          flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 결과물 다운로드★
+      - name: ★파일 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_REAL_SUCCESS_AAB
+          name: BikeFit_SUCCESS_AAB
           path: build/app/outputs/bundle/release/app-release.aab

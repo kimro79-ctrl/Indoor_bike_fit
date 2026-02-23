@@ -1,4 +1,4 @@
-name: BikeFit Manifest Fix Build
+name: BikeFit Perfect Manifest Build
 on:
   workflow_dispatch:
 
@@ -21,17 +21,56 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 [AndroidManifest 수리 및 키 설정]
+      - name: 🔐 [사용자 Manifest 적용 및 키 설정]
         run: |
           # 1. 빌드 청소
           flutter clean
           flutter pub get
 
-          # 2. AndroidManifest.xml 정밀 수리 (v1 embedding 해결)
-          # application 태그의 android:name 부분을 최신 규격으로 교체하거나 삭제합니다.
-          sed -i 's/android:name="io.flutter.app.FlutterApplication"//g' android/app/src/main/AndroidManifest.xml
-          
-          # 3. key.properties 생성 (사용자님이 옮긴 android/app/ 위치 고정)
+          # 2. 사용자님이 주신 Manifest 코드로 파일 교체
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.overthebike.over_the_bike_fit">
+
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+              <application
+                  android:label="Indoor_fit_app" 
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/launcher_icon"
+                  android:allowBackup="false">
+                  
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      
+                      <meta-data
+                          android:name="io.flutter.embedding.android.NormalTheme"
+                          android:resource="@style/NormalTheme" />
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+          # 3. key.properties 생성 (android/app 폴더 내 키 참조)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -50,5 +89,5 @@ jobs:
       - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_MANIFEST_FIXED_AAB
+          name: BikeFit_FINAL_FIXED_AAB
           path: build/app/outputs/bundle/release/app-release.aab

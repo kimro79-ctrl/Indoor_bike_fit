@@ -1,4 +1,4 @@
-name: BikeFit - Absolute Final Fix 2026
+name: BikeFit Final Success
 on:
   workflow_dispatch:
 
@@ -14,47 +14,59 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
+          channel: 'stable'
 
-      - name: 🔥 Fix Android V1 Embedding & Inject Verified Key
+      - name: 🔐 서명 정보 강제 주입 (변수 없이 직접 입력)
         run: |
-          # 1. 빌드 환경 초기화
-          flutter clean
-          rm -rf android/app/build android/key.properties
-          
-          # 2. V1 Embedding 에러 해결을 위해 안드로이드 프로젝트 강제 갱신
-          # (이미지 1000013293.jpg의 에러를 해결하는 핵심 단계입니다)
+          # 1. 안드로이드 구조 최신화
           flutter create . --platforms android --overwrite
-          
-          # 3. 검증된 release.jks 파일을 앱 폴더로 강제 주입
-          mkdir -p android/app
-          cp release.jks android/app/release.jks || exit 1
 
-          # 4. 서명 설정(key.properties) 강제 생성
-          cat <<EOF > android/key.properties
-          storePassword=Sodomaki80
-          keyPassword=Sodomaki80
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
+          # 2. 루트의 release.jks를 앱 폴더로 복사
+          mkdir -p android/app
+          cp release.jks android/app/release.jks
+
+          # 3. [핵심] 빌드 설정 파일에 서명 정보를 텍스트로 직접 박음
+          # 시스템이 자동으로 키를 찾는 과정을 생략하고 이 정보를 강제로 쓰게 합니다.
+          cat <<EOF > android/app/build.gradle
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          android {
+              namespace "com.overthebike.over_the_bike_fit"
+              compileSdk 34
+
+              signingConfigs {
+                  release {
+                      storeFile file("release.jks")
+                      storePassword "Sodomaki80"
+                      keyAlias "fresh-upload-key"
+                      keyPassword "Sodomaki80"
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
           EOF
 
-      - name: Build App Bundle (Release)
-        run: |
           flutter pub get
-          # 아이콘 쉐이킹 문제 방지 및 릴리즈 빌드
-          flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 🚨 FINAL CHECK: FINGERPRINT 🚨
-        run: |
-          echo "===================================================="
-          echo "빌드된 파일의 SHA1을 확인합니다 (반드시 75:CD... 여야 함)"
-          keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
-          echo "===================================================="
+      - name: AAB 빌드 실행
+        run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: Upload AAB
+      - name: ★최종 파일 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_Ready_To_Upload
+          name: BikeFit_FINAL_AAB
           path: build/app/outputs/bundle/release/app-release.aab

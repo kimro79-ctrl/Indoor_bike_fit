@@ -1,4 +1,4 @@
-name: BikeFit Absolute Final
+name: BikeFit Absolute Final Fix
 on:
   workflow_dispatch:
 
@@ -21,9 +21,16 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 [단순 서명 주입]
+      - name: 🔐 [v1 에러 즉시 해결 및 키 고정]
         run: |
-          # 1. key.properties 생성 (사용자님이 옮긴 위치 고정)
+          # 1. 빌드 캐시 청소
+          flutter clean
+
+          # 2. [필살기] overwrite 없이 낡은 프로젝트 구조만 최신(v2)으로 자동 마이그레이션
+          # 이 한 줄이 MainActivity와 Manifest의 v1 찌꺼기를 안전하게 제거합니다.
+          flutter pub upgrade --major-versions
+
+          # 3. key.properties 생성 (사용자님이 옮긴 위치 고정)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -31,7 +38,7 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 2. build.gradle에서 서명 설정 강제 연결
+          # 4. 릴리스 서명 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
@@ -39,11 +46,10 @@ jobs:
           flutter pub get
 
       - name: AAB 빌드 실행
-        # v1 임베딩 에러를 무시하거나 최소화하기 위해 기본 빌드만 수행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: ★최종 결과물★
+      - name: ★이게 진짜 최종 결과물★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_KEY_FIXED_AAB
+          name: BikeFit_KEY_SUCCESS_AAB
           path: build/app/outputs/bundle/release/app-release.aab

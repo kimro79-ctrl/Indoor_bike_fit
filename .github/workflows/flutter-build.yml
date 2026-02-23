@@ -1,4 +1,4 @@
-name: BikeFit Final Success Build
+name: BikeFit Absolute Fixed Build
 on:
   workflow_dispatch:
 
@@ -21,20 +21,13 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 [v1 오류 해결 및 키 복원]
+      - name: 🔐 [키 고정] android/app 내의 파일 직접 사용
         run: |
-          # 1. 먼저 메인에 있는 키를 안전한 임시 장소(/tmp)에 복사해둡니다.
-          cp android/app/release.jks /tmp/release.jks || cp release.jks /tmp/release.jks || echo "No jks found"
+          # 1. 기존 설정 찌꺼기만 삭제 (프로젝트 코드는 보존)
+          rm -f android/key.properties
 
-          # 2. 최신 구조로 갱신 (v1 embedding 해결)
-          # 사용자님의 패키지명 com.overthebike를 유지합니다.
-          flutter create . --platforms android --org com.overthebike --overwrite
-
-          # 3. 덮어쓰기로 인해 지워진 release.jks를 다시 android/app/으로 복원
-          mkdir -p android/app
-          cp /tmp/release.jks android/app/release.jks
-
-          # 4. key.properties 설정 재주입
+          # 2. key.properties 생성
+          # 사용자님이 직접 넣으신 android/app/release.jks를 그대로 바라봅니다.
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -42,7 +35,8 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 5. debug 대신 release 서명 강제 적용
+          # 3. 빌드 설정에서 릴리스 서명 강제 적용
+          # 디버그 키가 끼어들지 못하게 빌드 스크립트만 살짝 조정합니다.
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
@@ -55,5 +49,5 @@ jobs:
       - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_V1_FIXED_AAB
+          name: BikeFit_FIXED_AAB
           path: build/app/outputs/bundle/release/app-release.aab

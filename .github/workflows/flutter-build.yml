@@ -1,4 +1,4 @@
-name: BikeFit Final Absolute Success
+name: BikeFit Direct App Folder Build
 on:
   workflow_dispatch:
 
@@ -21,16 +21,13 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔐 [강제 집행] 진짜 키 주입 및 설정 초기화
+      - name: 🔐 [정적 경로 빌드] android/app 내의 키 사용
         run: |
-          # 1. 안드로이드 설정 강제 초기화 (apilevel 오류 방지)
+          # 1. 안드로이드 설정 강제 초기화 (기존 찌꺼기 제거)
           flutter create . --platforms android --overwrite
 
-          # 2. 메인 루트의 진짜 release.jks를 앱 폴더로 복사
-          mkdir -p android/app
-          cp release.jks android/app/release.jks
-
-          # 3. key.properties 생성 (별칭 fresh-upload-key 고정)
+          # 2. key.properties 설정
+          # 사용자님이 직접 android/app에 넣으신 release.jks를 바라봅니다.
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -38,8 +35,7 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 4. [중요] 가짜 키 사용 원천 차단
-          # 만약 키가 틀리면 빌드 서버가 "가짜 도장"을 찍지 못하게 막습니다.
+          # 3. 빌드 설정에서 릴리스 서명 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
@@ -52,5 +48,5 @@ jobs:
       - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_SUCCESS_AAB
+          name: BikeFit_FINAL_AAB
           path: build/app/outputs/bundle/release/app-release.aab

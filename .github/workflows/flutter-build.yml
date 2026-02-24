@@ -1,4 +1,4 @@
-name: BikeFit FINAL Clean Build (Flutter 3.19.6)
+name: BikeFit FINAL Android V2 Migration Build
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 Checkout source
         uses: actions/checkout@v4
 
       - name: ☕ Setup Java & Flutter
@@ -17,28 +17,34 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🐦 Setup Flutter (다운그레이드 안정판)
+      - name: 🐦 Setup Flutter (안정판)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: 🧹 환경 초기화 및 종속성 최신화
+      - name: 🧹 Clean environment & repair cache
         run: |
-          echo "🧼 Cleaning Flutter environment..."
+          echo "🧼 Cleaning environment..."
           flutter clean
           rm -rf ~/.pub-cache
           flutter pub cache repair || true
-          echo "📦 Upgrading and fetching dependencies..."
+
+          echo "📦 Fetching dependencies..."
           flutter pub get
           flutter pub upgrade --major-versions || true
 
-          echo "✅ Ensuring Android V2 structure..."
+          echo "🧩 Forcing full Android V2 embedding migration..."
+          rm -rf android/app/src/main/java/io/flutter/app || true
+          rm -rf android/app/src/main/kotlin/io/flutter/app || true
+          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java || true
+          rm -rf android/app/src/main/java/io/flutter/plugins/PluginRegistry.java || true
+
           mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
           import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity()
+          class MainActivity: FlutterActivity() {}
           EOF
 
           cat <<EOF > android/app/src/main/AndroidManifest.xml
@@ -61,20 +67,16 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
+                  <meta-data android:name="flutterEmbedding" android:value="2" />
               </application>
           </manifest>
           EOF
 
-          echo "🧹 Removing legacy GeneratedPluginRegistrant..."
-          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java || true
-          echo "✅ Android structure verified."
+          echo "✅ Android embedding migration complete."
 
-      - name: 🔐 Keystore 설정
+      - name: 🔐 Configure release keystore
         run: |
-          echo "🔑 Configuring keystore..."
+          echo "🔑 Configuring release key..."
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -83,33 +85,24 @@ jobs:
           EOF
 
           if [ ! -f "android/app/release.jks" ]; then
-            echo "📦 Copying release.jks..."
             cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
-          else
-            echo "✅ release.jks already exists. Skipping copy."
           fi
 
-      - name: 🔍 SHA1 인증서 지문 출력
+      - name: 🔍 Show SHA1 fingerprint
         run: |
-          echo "🔎 Extracting SHA1 fingerprint..."
           keytool -list -v \
             -keystore android/app/release.jks \
             -alias fresh-upload-key \
             -storepass Sodomaki80 \
             -keypass Sodomaki80 | grep "SHA1"
 
-      - name: 🧩 V1 코드 탐지
+      - name: 🚀 Build Android App Bundle (AAB)
         run: |
-          echo "🔍 Scanning project for registerWith..."
-          grep -r "registerWith" . || echo "✅ No registerWith() found in project."
-
-      - name: 🚀 AAB 빌드 실행 (안정 호환 모드)
-        run: |
-          echo "🚀 Building release AAB with Flutter 3.19.6..."
+          echo "🚀 Building final AAB..."
           flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 최종 AAB 파일 다운로드
+      - name: 📦 Upload final artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_FINAL_AAB_3.19.6
+          name: BikeFit_FINAL_V2_AAB
           path: build/app/outputs/bundle/release/*.aab

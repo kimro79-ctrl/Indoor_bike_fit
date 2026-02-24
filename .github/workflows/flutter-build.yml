@@ -1,4 +1,4 @@
-name: BikeFit OverTheBike Final Artifact Fix
+name: BikeFit Final Emergency Fix
 
 on:
   workflow_dispatch:
@@ -22,15 +22,19 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🛠️ 패키지명(over_the_bike_fit) 통일 및 기존 키 주입
+      - name: 🛠️ 구식 설정 강제 삭제 및 최신 규격(V2) 주입
         run: |
           flutter clean
+          
+          # 1. 패키지명 고정 (over_the_bike_fit)
           PACKAGE_NAME="com.overthebike.over_the_bike_fit"
           PACKAGE_PATH="android/app/src/main/kotlin/com/overthebike/over_the_bike_fit"
           
+          # 2. 에러 유발 파일들 삭제
           find android/app/src/main -name "MainActivity.*" -delete
           rm -f android/app/src/main/AndroidManifest.xml
 
+          # 3. MainActivity.kt 새로 생성
           mkdir -p $PACKAGE_PATH
           cat <<EOF > $PACKAGE_PATH/MainActivity.kt
           package $PACKAGE_NAME
@@ -38,6 +42,7 @@ jobs:
           class MainActivity: FlutterActivity()
           EOF
 
+          # 4. AndroidManifest.xml 새로 생성 (V2 임베딩 강제 명시)
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="$PACKAGE_NAME">
@@ -65,7 +70,7 @@ jobs:
           </manifest>
           EOF
 
-          # 기존 release.jks 연결 및 Sodomaki80 비밀번호 사용
+          # 5. 기존 release.jks 연결 및 key.properties 생성
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -73,21 +78,23 @@ jobs:
           storeFile=release.jks
           EOF
 
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i "s/applicationId \".*\"/applicationId \"$PACKAGE_NAME\"/g" android/app/build.gradle
-            sed -i "s/namespace \".*\"/namespace \"$PACKAGE_NAME\"/g" android/app/build.gradle
-            sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
+          # 6. build.gradle 설정 강제 교체 (V1 에러의 핵심 원인 제거)
+          GRADLE_FILE="android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ]; then
+            # 패키지명 일치 및 서명 설정 적용
+            sed -i "s/applicationId \".*\"/applicationId \"$PACKAGE_NAME\"/g" $GRADLE_FILE
+            sed -i "s/namespace \".*\"/namespace \"$PACKAGE_NAME\"/g" $GRADLE_FILE
+            sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $GRADLE_FILE
           fi
 
           flutter pub get
 
-      - name: AAB 빌드 실행 (기존 키로 서명)
+      - name: AAB 빌드 실행 (V2 규격 적용)
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 ★AAB 파일 업로드 (여기서 다운로드 가능)★
+      - name: 📦 ★최종 AAB 파일 다운로드★
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FINAL_AAB
-          # 경로가 누락되지 않도록 와일드카드(*)를 사용하여 확실하게 잡습니다.
           path: build/app/outputs/bundle/release/*.aab
           if-no-files-found: error

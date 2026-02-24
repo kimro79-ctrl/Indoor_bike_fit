@@ -1,4 +1,4 @@
-name: BikeFit FINAL V2 Release Build
+name: BikeFit FINAL V2 AUTO FIX Build
 
 on:
   workflow_dispatch:
@@ -23,16 +23,17 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🧹 Android 빌드 환경 정리 및 최신화
+      - name: 🧹 환경 초기화 및 플러그인 최신화
         run: |
-          echo "🧼 Cleaning build environment..."
+          echo "🧼 Cleaning build and cache..."
           flutter clean
-
-          echo "📦 Upgrading dependencies..."
+          rm -rf ~/.pub-cache
+          flutter pub cache repair || true
+          echo "📦 Upgrading all dependencies..."
           flutter pub upgrade --major-versions
           flutter pub get
 
-          echo "✅ Ensuring correct Android project structure..."
+          echo "✅ Ensuring correct Android structure..."
           mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
@@ -66,7 +67,7 @@ jobs:
               </application>
           </manifest>
           EOF
-          echo "✅ Project structure verified."
+          echo "✅ Android structure verified."
 
       - name: 🔐 Keystore 설정
         run: |
@@ -78,7 +79,6 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 이미 존재하면 복사하지 않음
           if [ ! -f "android/app/release.jks" ]; then
             echo "📦 Copying release.jks..."
             cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
@@ -86,7 +86,7 @@ jobs:
             echo "✅ release.jks already exists. Skipping copy."
           fi
 
-      - name: 🔍 SHA1 인증서 지문 출력 (Google Play 검증용)
+      - name: 🔍 SHA1 인증서 지문 출력
         run: |
           echo "🔎 Extracting SHA1 from release.jks..."
           keytool -list -v \
@@ -95,13 +95,15 @@ jobs:
             -storepass Sodomaki80 \
             -keypass Sodomaki80 | grep "SHA1"
 
-      - name: 🧩 Check for V1 embedding plugins
+      - name: 🧩 V1 임베딩 코드 탐지
         run: |
-          echo "🔍 Checking for any old V1 embedding code..."
+          echo "🔍 Searching for legacy Android V1 plugin code..."
           grep -r "registerWith" . || echo "✅ No V1 embedding code found"
 
-      - name: 🚀 AAB 빌드 실행
-        run: flutter build appbundle --release --no-tree-shake-icons
+      - name: 🚀 AAB 빌드 실행 (응급 호환 모드)
+        run: |
+          echo "🚀 Building AAB with --no-sound-null-safety flag (compat mode)..."
+          flutter build appbundle --release --no-tree-shake-icons --no-sound-null-safety
 
       - name: 📦 최종 AAB 파일 다운로드
         uses: actions/upload-artifact@v4

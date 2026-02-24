@@ -1,4 +1,4 @@
-name: BikeFit FINAL V2 Clean Build
+name: BikeFit FINAL Absolute Clean Build
 
 on:
   workflow_dispatch:
@@ -28,9 +28,11 @@ jobs:
           echo "🧼 Cleaning build and cache..."
           flutter clean
           rm -rf ~/.pub-cache
+          rm -rf $FLUTTER_ROOT/.pub-cache
           flutter pub cache repair || true
           echo "📦 Upgrading dependencies..."
           flutter pub upgrade --major-versions
+          flutter pub outdated || true
           flutter pub get
 
           echo "✅ Ensuring correct Android structure..."

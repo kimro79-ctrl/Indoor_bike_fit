@@ -10,12 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # 🔹 최신 Flutter 3.27 대응 버전
   fl_chart: ^0.70.0
   intl: ^0.19.0
   shared_preferences: ^2.3.5
-  flutter_blue_plus: ^1.36.1          # ✅ Android V2 embedding 완전 호환
-  permission_handler: ^12.1.0          # ✅ Android 14 대응, V2 구조
+  flutter_blue_plus: ^1.34.4           # ✅ 안정 버전
+  permission_handler: ^11.3.1          # ✅ Flutter 3.27 완벽 호환 버전
   table_calendar: ^3.1.2
   cupertino_icons: ^1.0.6
   flutter_plugin_android_lifecycle: ^2.0.20

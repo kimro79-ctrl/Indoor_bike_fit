@@ -1,4 +1,4 @@
-name: BikeFit V2-Fix Final
+name: BikeFit Fresh Reconstruction Build
 
 on:
   workflow_dispatch:
@@ -22,34 +22,52 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🛠️ V1 좀비 설정 강제 제거 및 V2 전환
+      - name: 🛠️ 구식 파일 삭제 및 최신 규격으로 새로 생성
         run: |
-          flutter clean
-
-          # 1. 패키지명 고정
-          PACKAGE_NAME="com.kimro79.indoor_bike_fit"
-          PACKAGE_PATH="android/app/src/main/kotlin/com/kimro79/indoor_bike_fit"
-          
-          # 2. MainActivity를 최신 V2 코드로 강제 재생성
+          # 1. 기존 에러 유발 파일들 삭제
+          rm -f android/app/src/main/AndroidManifest.xml
           find android/app/src/main -name "MainActivity.*" -delete
+          
+          # 2. 패키지 경로 생성 (Indoor_bike_fit 전용)
+          PACKAGE_PATH="android/app/src/main/kotlin/com/kimro79/indoor_bike_fit"
           mkdir -p $PACKAGE_PATH
+
+          # 3. MainActivity.kt 새로 만들기 (V2 임베딩 방식)
           cat <<EOF > $PACKAGE_PATH/MainActivity.kt
-          package $PACKAGE_NAME
+          package com.kimro79.indoor_bike_fit
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity()
           EOF
 
-          # 3. AndroidManifest.xml의 V1 메타데이터 및 구식 설정 강제 삭제
-          # 이 부분이 빠지면 계속 'deleted Android v1' 에러가 납니다.
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i '/android:name="io.flutter.app.FlutterApplication"/d' $MANIFEST
-            sed -i '/io.flutter.embedding.android.NormalThemes/d' $MANIFEST
-            sed -i '/io.flutter.embedding.android.SplashScreenDrawable/d' $MANIFEST
-            sed -i '/android:name="io.flutter.embedding.android.SplashScreenDrawable"/d' $MANIFEST
-          fi
+          # 4. AndroidManifest.xml 새로 만들기 (V2 임베딩 방식)
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.kimro79.indoor_bike_fit">
+              <application
+                  android:label="indoor_bike_fit"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
 
-          # 4. key.properties 설정 (사용자님의 release.jks 참조)
+          # 5. 서명 설정 (Sodomaki80 비밀번호 및 release.jks 연결)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -57,18 +75,18 @@ jobs:
           storeFile=release.jks
           EOF
 
-          # 5. 서명 설정 강제 적용
+          # 6. build.gradle 서명 강제 적용
           if [ -f "android/app/build.gradle" ]; then
             sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           fi
 
           flutter pub get
 
-      - name: AAB 빌드 실행 (V2 전용 빌드)
+      - name: AAB 빌드 실행 (최종 업로드용)
         run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: ★최종 결과물 다운로드★
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_V2_Fixed_AAB
+          name: BikeFit_Fresh_AAB
           path: build/app/outputs/bundle/release/app-release.aab

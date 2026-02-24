@@ -1,4 +1,4 @@
-name: BikeFit Final Build After Gradle Fix
+name: BikeFit Absolute Reset Build
 
 on:
   workflow_dispatch:
@@ -22,22 +22,110 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🛠️ 빌드 전 필수 환경 세팅
+      - name: 🔥 [결정적 단계] 모든 구식 안드로이드 설정 파괴 및 최신화
         run: |
-          # 1. key.properties 생성 (비밀번호 Sodomaki80 적용)
+          # 1. 기존 빌드 캐시 및 에러 유발 폴더 삭제
+          flutter clean
+          rm -rf android/app/src/main/kotlin/com/overthebike
+          rm -f android/app/src/main/AndroidManifest.xml
+          rm -f android/app/build.gradle
+          
+          # 2. 패키지 경로 재생성
+          PACKAGE_NAME="com.overthebike.over_the_bike_fit"
+          PACKAGE_PATH="android/app/src/main/kotlin/com/overthebike/over_the_bike_fit"
+          mkdir -p $PACKAGE_PATH
+
+          # 3. MainActivity.kt 최신 V2 규격 생성
+          cat <<EOF > $PACKAGE_PATH/MainActivity.kt
+          package $PACKAGE_NAME
+          import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity()
+          EOF
+
+          # 4. AndroidManifest.xml 최신 V2 규격 생성
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="$PACKAGE_NAME">
+              <application
+                  android:label="over_the_bike_fit"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+          # 5. build.gradle 완전 재작성 (사용자님의 사진에서 누락된 로직 강제 주입)
+          cat <<EOF > android/app/build.gradle
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+          }
+          def localProperties = new Properties()
+          def localPropertiesFile = rootProject.file('local.properties')
+          if (localPropertiesFile.exists()) {
+              localProperties.load(new FileInputStream(localPropertiesFile))
+          }
+          def flutterRoot = localProperties.getProperty('flutter.sdk')
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
+          apply from: "\$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
+          android {
+              namespace "$PACKAGE_NAME"
+              compileSdkVersion 34
+              defaultConfig {
+                  applicationId "$PACKAGE_NAME"
+                  minSdkVersion 21
+                  targetSdkVersion 34
+                  versionCode 4
+                  versionName "1.0.3"
+              }
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+          }
+          flutter { source '../..' }
+          dependencies {
+              implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:\$kotlin_version"
+          }
+          EOF
+
+          # 6. key.properties 설정 (사용자님 release.jks 정보)
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
           storeFile=release.jks
-          EOF
-          
-          # 2. MainActivity 자동 생성 (없을 경우를 대비)
-          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
-          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
-          package com.overthebike.over_the_bike_fit
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity()
           EOF
 
           flutter pub get

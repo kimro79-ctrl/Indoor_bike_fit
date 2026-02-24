@@ -1,4 +1,4 @@
-name: BikeFit FINAL V2 AUTO FIX Build
+name: BikeFit FINAL V2 Clean Build
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
           flutter clean
           rm -rf ~/.pub-cache
           flutter pub cache repair || true
-          echo "📦 Upgrading all dependencies..."
+          echo "📦 Upgrading dependencies..."
           flutter pub upgrade --major-versions
           flutter pub get
 
@@ -67,6 +67,10 @@ jobs:
               </application>
           </manifest>
           EOF
+
+          echo "🧹 Removing legacy GeneratedPluginRegistrant (V1 embedding)"
+          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
           echo "✅ Android structure verified."
 
       - name: 🔐 Keystore 설정
@@ -100,10 +104,10 @@ jobs:
           echo "🔍 Searching for legacy Android V1 plugin code..."
           grep -r "registerWith" . || echo "✅ No V1 embedding code found"
 
-      - name: 🚀 AAB 빌드 실행 (응급 호환 모드)
+      - name: 🚀 AAB 빌드 실행
         run: |
-          echo "🚀 Building AAB with --no-sound-null-safety flag (compat mode)..."
-          flutter build appbundle --release --no-tree-shake-icons --no-sound-null-safety
+          echo "🚀 Building AAB..."
+          flutter build appbundle --release --no-tree-shake-icons
 
       - name: 📦 최종 AAB 파일 다운로드
         uses: actions/upload-artifact@v4

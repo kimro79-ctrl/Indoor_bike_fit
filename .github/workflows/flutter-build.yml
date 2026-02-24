@@ -1,4 +1,4 @@
-name: BikeFit FINAL Absolute Clean Build
+name: BikeFit FINAL Absolute Clean Build V2
 
 on:
   workflow_dispatch:
@@ -23,19 +23,19 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🧹 환경 초기화 및 플러그인 최신화
+      - name: 🧹 캐시 완전 초기화 및 플러그인 재설치
         run: |
-          echo "🧼 Cleaning build and cache..."
-          flutter clean
+          echo "🧼 Full cleaning environment..."
           rm -rf ~/.pub-cache
           rm -rf $FLUTTER_ROOT/.pub-cache
-          flutter pub cache repair || true
-          echo "📦 Upgrading dependencies..."
-          flutter pub upgrade --major-versions
-          flutter pub outdated || true
-          flutter pub get
+          flutter clean
 
-          echo "✅ Ensuring correct Android structure..."
+          echo "📦 Fetching dependencies fresh..."
+          flutter pub get
+          flutter pub upgrade --major-versions
+          flutter pub cache repair || true
+
+          echo "✅ Ensuring modern Android structure..."
           mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
@@ -85,37 +85,25 @@ jobs:
           EOF
 
           if [ ! -f "android/app/release.jks" ]; then
-            echo "📦 Copying release.jks..."
             cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
-          else
-            echo "✅ release.jks already exists. Skipping copy."
           fi
 
-      - name: 🔍 SHA1 인증서 지문 출력
+      - name: 🧩 플러그인 내부 V1 코드 무력화
         run: |
-          echo "🔎 Extracting SHA1 from release.jks..."
-          keytool -list -v \
-            -keystore android/app/release.jks \
-            -alias fresh-upload-key \
-            -storepass Sodomaki80 \
-            -keypass Sodomaki80 | grep "SHA1"
-
-      - name: 🧩 V1 임베딩 코드 탐지
-        run: |
-          echo "🔍 Searching for legacy Android V1 plugin code..."
-          grep -r "registerWith" . || echo "✅ No V1 embedding code found"
-
-      - name: 🧰 플러그인 자동 패치 (V1 코드 제거)
-        run: |
-          echo "🧩 Searching for legacy registerWith in plugin cache..."
-          grep -rl "registerWith" $FLUTTER_ROOT/.pub-cache || true
-          grep -rl "registerWith" $HOME/.pub-cache || true
-          find $HOME/.pub-cache -type f -name "*.java" -print0 | xargs -0 sed -i 's/registerWith/ignoredRegisterWith/g' || true
-          echo "✅ Patched any legacy registerWith() calls inside plugins."
+          echo "🧩 Scanning Flutter pub cache for V1 code..."
+          find ~/.pub-cache -type f -name "*.java" -exec grep -l "registerWith" {} \; > found_v1_plugins.txt || true
+          if [ -s found_v1_plugins.txt ]; then
+            echo "🧩 Found V1 plugins:"
+            cat found_v1_plugins.txt
+            echo "🔧 Patching..."
+            cat found_v1_plugins.txt | xargs sed -i 's/registerWith/ignoredRegisterWith/g'
+          else
+            echo "✅ No V1 embedding found in plugins."
+          fi
 
       - name: 🚀 AAB 빌드 실행
         run: |
-          echo "🚀 Building AAB..."
+          echo "🚀 Building clean AAB..."
           flutter build appbundle --release --no-tree-shake-icons
 
       - name: 📦 최종 AAB 파일 다운로드

@@ -1,4 +1,4 @@
-name: BikeFit FINAL SUCCESS SDK35
+name: BikeFit FINAL SUCCESS SDK35 V3
 
 on:
   workflow_dispatch:
@@ -22,18 +22,16 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔥 [완성] 안드로이드 폴더 재생성 및 SDK 35 설정
+      - name: 🔧 안드로이드 빌드 환경 최적화 (SDK 35 & Java 17)
         run: |
-          # 1. 초기화 및 재생성
+          # 1. 빌드 클린
           flutter clean
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike
           
-          # 2. 경로 정보 주입 (flutterRoot 에러 방지)
+          # 2. local.properties 생성 (flutterRoot 설정)
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-          # 3. 최신 V2 build.gradle 주입 (compileSdk 35 적용)
+          # 3. build.gradle 업데이트 (SDK 35 및 현재 JKS 위치 반영)
           cat <<EOF > android/app/build.gradle
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file('local.properties')
@@ -55,7 +53,6 @@ jobs:
 
           android {
               namespace "com.overthebike.over_the_bike_fit"
-              // 최신 플러그인 요구사항에 맞춰 35로 상향
               compileSdkVersion 35
               
               defaultConfig {
@@ -66,7 +63,6 @@ jobs:
                   versionName "1.0.3"
               }
 
-              // Java 17 호환성 강제 지정
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
@@ -80,7 +76,8 @@ jobs:
                   release {
                       keyAlias keystoreProperties['keyAlias']
                       keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
+                      // 💡 파일이 이미 android/app 안에 있으므로 경로를 이와 같이 설정합니다.
+                      storeFile file('release.jks')
                       storePassword keystoreProperties['storePassword']
                   }
               }
@@ -97,25 +94,21 @@ jobs:
           flutter { source '../..' }
           EOF
 
-          # 4. 키스토어 설정 (Sodomaki80)
-          cat <<EOF > android/key.properties
+          # 4. key.properties 생성
+          cat <<EOF > android/app/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-          
-          if [ -f "release.jks" ]; then
-            cp release.jks android/app/release.jks
-          fi
 
           flutter pub get
 
       - name: 🚀 AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 파일 다운로드
+      - name: 📦 최종 AAB 파일 다운로드
         uses: actions/upload-artifact@v4
         with:
-          name: OverTheBike_SDK35_AAB
+          name: OverTheBike_FINAL_SUCCESS_AAB
           path: build/app/outputs/bundle/release/*.aab

@@ -1,4 +1,4 @@
-name: BikeFit OverTheBike - GET MY AAB
+name: BikeFit - Restore Success & Get AAB
 
 on:
   workflow_dispatch:
@@ -7,55 +7,60 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Checkout code
+      - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Setup Java & Flutter
+      - name: ☕ Java 17 및 Flutter 설정
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🐦 Setup Flutter
+      - name: 🐦 Flutter 설정 (안정 버전)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🛠️ 필수 환경 설정 (성공 당시 환경 복구)
+      - name: 🧹 빌드 환경 초기화 및 V1 좀비 제거
         run: |
-          # 1. 패키지 경로 정리
-          PACKAGE_NAME="com.overthebike.over_the_bike_fit"
-          PACKAGE_PATH="android/app/src/main/kotlin/com/overthebike/over_the_bike_fit"
-          mkdir -p $PACKAGE_PATH
+          flutter clean
+          # 빌드 에러를 유발하는 자동 생성 폴더 삭제
+          rm -rf android/app/src/main/java
           
-          # 2. MainActivity.kt 생성
-          cat <<EOF > $PACKAGE_PATH/MainActivity.kt
-          package $PACKAGE_NAME
+          # MainActivity.kt 위치 강제 고정
+          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
+          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
+          package com.overthebike.over_the_bike_fit
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity()
           EOF
 
-          # 3. 키스토어 및 빌드 정보 설정
-          cat <<EOF > android/app/key.properties
+      - name: 🔑 [중요] 키스토어 파일 배치
+        run: |
+          # jks 파일이 프로젝트 루트에 있다면 android/app 폴더로 복사합니다.
+          cp release.jks android/app/release.jks || echo "JKS already in place"
+          
+          # 서명 정보 작성
+          cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-          
-          flutter pub get
 
-      - name: 🚀 AAB 빌드 실행
+      - name: 📦 의존성 해결 및 빌드 실행
         run: |
-          # V1 에러가 날 경우에만 대비하여 해당 파일만 살짝 지워줍니다.
+          flutter pub get
+          # 빌드 직전 다시 한번 V1 잔재 삭제
           rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          # --no-tree-shake-icons 옵션으로 안전하게 빌드
           flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 [핵심] 모든 경로에서 AAB 찾아내기
+      - name: 🚀 [성공 결과물] AAB 파일 다운로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB_File
-          # 특정 경로가 아닌, 빌드 폴더 전체에서 .aab 파일을 찾아냅니다.
-          path: build/**/*.aab
+          name: OverTheBike_Final_AAB
+          # 빌드된 모든 위치에서 AAB를 찾음
+          path: build/app/outputs/bundle/release/*.aab
           if-no-files-found: error

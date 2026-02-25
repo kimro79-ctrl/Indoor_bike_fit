@@ -1,4 +1,4 @@
-name: BikeFit OverTheBike FINAL Absolute Fix
+name: BikeFit Simple V2 Fix
 
 on:
   workflow_dispatch:
@@ -7,85 +7,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: ☕ Setup Java & Flutter
+      - name: Setup Java & Flutter
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🐦 Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔥 [긴급] 안드로이드 V1 잔재 파괴 및 V2 강제 개조
+      - name: 🧹 V1 잔재 강제 삭제 및 설정
         run: |
-          echo "🧼 Cleaning previous build state..."
           flutter clean
-          
-          PACKAGE_NAME="com.overthebike.over_the_bike_fit"
-          PACKAGE_PATH="android/app/src/main/kotlin/com/overthebike/over_the_bike_fit"
-
-          # 1. 구식 파일 및 경로 완전 삭제
+          # 1. 구식 경로 파일 삭제 (에러 방지)
           rm -rf android/app/src/main/kotlin/com/kimro79
-          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
-          find android/app/src/main -name "MainActivity.*" -delete
-
-          # 2. 최신 V2 MainActivity.kt 생성
-          mkdir -p $PACKAGE_PATH
-          cat <<EOF > $PACKAGE_PATH/MainActivity.kt
-          package $PACKAGE_NAME
+          
+          # 2. MainActivity.kt 생성
+          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
+          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
+          package com.overthebike.over_the_bike_fit
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity()
           EOF
 
-          # 3. AndroidManifest.xml 완전 재작성 (V1 Application 클래스 제거 핵심)
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="$PACKAGE_NAME">
-              <application
-                  android:label="over_the_bike_fit"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
-              </application>
-          </manifest>
-          EOF
-
-          # 4. build.gradle 내 패키지명 강제 통일
-          sed -i "s/applicationId \".*\"/applicationId \"$PACKAGE_NAME\"/g" android/app/build.gradle
-          sed -i "s/namespace \".*\"/namespace \"$PACKAGE_NAME\"/g" android/app/build.gradle
-
-      - name: 🧰 플러그인 의존성 강제 복구
-        run: |
-          echo "📦 Fixing pub cache and dependencies..."
-          flutter pub cache repair || true
-          # 구식 registerWith 호출을 무력화하여 V2 호환성 강제 확보
-          find $HOME/.pub-cache -type f -name "*.java" -print0 | xargs -0 sed -i 's/registerWith/ignoredRegisterWith/g' || true
-          flutter pub get
-
-      - name: 🔐 Keystore 설정
-        run: |
-          echo "🔑 Setting up keystore..."
+          # 3. key.properties 생성
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
@@ -93,16 +44,17 @@ jobs:
           storeFile=release.jks
           EOF
           
-          # JKS 파일 위치 확인 및 복사
           if [ -f "release.jks" ]; then
             cp release.jks android/app/release.jks
           fi
 
+          flutter pub get
+
       - name: 🚀 AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 최종 AAB 파일 다운로드
+      - name: 📦 파일 다운로드
         uses: actions/upload-artifact@v4
         with:
-          name: OverTheBike_V2_FIXED_AAB
+          name: BikeFit_Fixed_AAB
           path: build/app/outputs/bundle/release/*.aab

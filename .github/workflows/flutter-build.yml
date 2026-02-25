@@ -1,4 +1,4 @@
-name: BikeFit FINAL Android V2 Migration Build
+name: BikeFit FINAL V2 Auto-Migration Build
 
 on:
   workflow_dispatch:
@@ -23,23 +23,21 @@ jobs:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: 🧹 Clean environment & repair cache
+      - name: 🧹 Clean environment & auto-migrate Android V2
         run: |
-          echo "🧼 Cleaning environment..."
+          echo "🧼 Cleaning old cache and build files..."
           flutter clean
           rm -rf ~/.pub-cache
           flutter pub cache repair || true
 
           echo "📦 Fetching dependencies..."
           flutter pub get
-          flutter pub upgrade --major-versions || true
 
-          echo "🧩 Forcing full Android V2 embedding migration..."
-          rm -rf android/app/src/main/java/io/flutter/app || true
-          rm -rf android/app/src/main/kotlin/io/flutter/app || true
-          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java || true
-          rm -rf android/app/src/main/java/io/flutter/plugins/PluginRegistry.java || true
+          echo "🧩 Regenerating Android project with V2 embedding..."
+          rm -rf android
+          flutter create .
 
+          echo "✅ Android project regenerated with V2 embedding."
           mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
@@ -47,49 +45,25 @@ jobs:
           class MainActivity: FlutterActivity() {}
           EOF
 
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.overthebike.over_the_bike_fit">
-              <application
-                  android:label="over_the_bike_fit"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-          </manifest>
-          EOF
-
-          echo "✅ Android embedding migration complete."
+          echo "✅ MainActivity.kt created successfully."
 
       - name: 🔐 Configure release keystore
         run: |
-          echo "🔑 Configuring release key..."
+          echo "🔑 Setting up keystore..."
           cat <<EOF > android/key.properties
           storePassword=Sodomaki80
           keyPassword=Sodomaki80
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-
+          
           if [ ! -f "android/app/release.jks" ]; then
             cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
           fi
 
-      - name: 🔍 Show SHA1 fingerprint
+      - name: 🔍 Display SHA1 fingerprint
         run: |
+          echo "🔍 Extracting SHA1 fingerprint..."
           keytool -list -v \
             -keystore android/app/release.jks \
             -alias fresh-upload-key \
@@ -98,10 +72,10 @@ jobs:
 
       - name: 🚀 Build Android App Bundle (AAB)
         run: |
-          echo "🚀 Building final AAB..."
+          echo "🚀 Building release AAB..."
           flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 Upload final artifact
+      - name: 📦 Upload final AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_FINAL_V2_AAB

@@ -1,4 +1,4 @@
-name: BikeFit FINAL SUCCESS SDK35 V3
+name: BikeFit OverTheBike REAL FINAL SUCCESS
 
 on:
   workflow_dispatch:
@@ -22,23 +22,60 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🔧 안드로이드 빌드 환경 최적화 (SDK 35 & Java 17)
+      - name: 🔥 [V1 박멸] 안드로이드 구조 강제 교정
         run: |
-          # 1. 빌드 클린
+          # 1. 빌드 캐시 및 이전 잔재 청소
           flutter clean
           
-          # 2. local.properties 생성 (flutterRoot 설정)
+          # 2. 패키지 경로 및 MainActivity.kt 재생성
+          PACKAGE_NAME="com.overthebike.over_the_bike_fit"
+          PACKAGE_PATH="android/app/src/main/kotlin/com/overthebike/over_the_bike_fit"
+          
+          # V1 에러의 주범인 파일을 미리 삭제하여 빌드 엔진을 속이지 못하게 함
+          rm -rf android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          
+          mkdir -p $PACKAGE_PATH
+          cat <<EOF > $PACKAGE_PATH/MainActivity.kt
+          package $PACKAGE_NAME
+          import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity()
+          EOF
+
+          # 3. AndroidManifest.xml V2 전용으로 재작성
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="$PACKAGE_NAME">
+              <application
+                  android:label="over_the_bike_fit"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data android:name="flutterEmbedding" android:value="2" />
+              </application>
+          </manifest>
+          EOF
+
+      - name: 🛠️ SDK 35 & Java 17 설정 (pubspec 맞춤형)
+        run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
 
-          # 3. build.gradle 업데이트 (SDK 35 및 현재 JKS 위치 반영)
           cat <<EOF > android/app/build.gradle
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file('local.properties')
-          if (localPropertiesFile.exists()) {
-              localProperties.load(new FileInputStream(localPropertiesFile))
-          }
-
+          if (localPropertiesFile.exists()) { localProperties.load(new FileInputStream(localPropertiesFile)) }
           def flutterRoot = localProperties.getProperty('flutter.sdk')
 
           apply plugin: 'com.android.application'
@@ -47,13 +84,11 @@ jobs:
 
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
+          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
 
           android {
               namespace "com.overthebike.over_the_bike_fit"
-              compileSdkVersion 35
+              compileSdkVersion 35 //
               
               defaultConfig {
                   applicationId "com.overthebike.over_the_bike_fit"
@@ -62,53 +97,15 @@ jobs:
                   versionCode 4
                   versionName "1.0.3"
               }
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-
+              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+              kotlinOptions { jvmTarget = '17' }
               signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
                       keyPassword keystoreProperties['keyPassword']
-                      // 💡 파일이 이미 android/app 안에 있으므로 경로를 이와 같이 설정합니다.
-                      storeFile file('release.jks')
+                      storeFile file('release.jks') //
                       storePassword keystoreProperties['storePassword']
                   }
               }
-
               buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled true
-                      shrinkResources true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
-          }
-          flutter { source '../..' }
-          EOF
-
-          # 4. key.properties 생성
-          cat <<EOF > android/app/key.properties
-          storePassword=Sodomaki80
-          keyPassword=Sodomaki80
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
-          EOF
-
-          flutter pub get
-
-      - name: 🚀 AAB 빌드 실행
-        run: flutter build appbundle --release --no-tree-shake-icons
-
-      - name: 📦 최종 AAB 파일 다운로드
-        uses: actions/upload-artifact@v4
-        with:
-          name: OverTheBike_FINAL_SUCCESS_AAB
-          path: build/app/outputs/bundle/release/*.aab
+                  release

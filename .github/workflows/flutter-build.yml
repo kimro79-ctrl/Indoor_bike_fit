@@ -1,4 +1,4 @@
-name: BikeFit FULL Android V2 Rebuild Build
+name: BikeFit FINAL AAB Build (for Google Play Upload)
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout repository
+      - name: 📥 Checkout source
         uses: actions/checkout@v4
 
       - name: ☕ Setup Java & Flutter
@@ -17,61 +17,16 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 🐦 Setup Flutter (V2 안정판)
+      - name: 🐦 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: 🧹 Full Android Rebuild (V2 Embedding)
+      - name: 🧹 Clean & Fetch Dependencies
         run: |
-          echo "🧼 Cleaning old Android structure..."
-          rm -rf android
           flutter clean
-          rm -rf ~/.pub-cache
-          flutter pub cache repair || true
-
-          echo "🧩 Recreating Android folder from V2 template..."
-          flutter create .
-          echo "✅ Android folder recreated successfully."
-
-          echo "🧩 Reconfiguring package name..."
-          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
-          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
-          package com.overthebike.over_the_bike_fit
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity() {}
-          EOF
-
-          echo "🧩 Patching AndroidManifest.xml..."
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.overthebike.over_the_bike_fit">
-              <application
-                  android:label="over_the_bike_fit"
-                  android:name="\${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|fontScale"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
-              </application>
-          </manifest>
-          EOF
-
-          echo "✅ AndroidManifest.xml and MainActivity re-created (V2)."
+          flutter pub get
 
       - name: 🔐 Setup Keystore
         run: |
@@ -82,22 +37,15 @@ jobs:
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
+          cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
 
-          if [ ! -f "android/app/release.jks" ]; then
-            cp $GITHUB_WORKSPACE/release.jks android/app/release.jks
-          fi
-
-      - name: 📦 Install dependencies
+      - name: 🚀 Build Signed AAB
         run: |
-          flutter pub get
-
-      - name: 🚀 Build AAB (V2)
-        run: |
-          echo "🚀 Building final AAB in clean V2 environment..."
+          echo "🚀 Building release AAB..."
           flutter build appbundle --release --no-tree-shake-icons
 
       - name: 📦 Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_V2_Rebuild_AAB
+          name: over_the_bike_fit_RELEASE_AAB
           path: build/app/outputs/bundle/release/*.aab

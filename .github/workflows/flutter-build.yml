@@ -1,4 +1,4 @@
-name: BikeFit - ABSOLUTE REBUILD SUCCESS
+name: BikeFit Final Ultra Build
 
 on:
   workflow_dispatch:
@@ -10,55 +10,59 @@ jobs:
       - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Java 17 및 Flutter 설정 (3.27.1)
+      - name: ☕ Setup Java & Flutter
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: 🐦 Flutter 설정
+      - name: 🐦 Flutter 설정 (3.27.1)
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🏗️ [근본 대책] Android 엔진 완전 재건축 (V2 강제 전환)
+      - name: 🏗️ 환경 재생성 (성공 로직)
         run: |
-          # 1. 좀비 설정이 남은 기존 android 폴더 삭제
-          rm -rf android/
-          
-          # 2. 현재 플러터 버전 표준으로 안드로이드 프로젝트 신규 생성
-          # 패키지명: com.overthebike.over_the_bike_fit
-          flutter create . --platforms=android --org com.overthebike --project-name over_the_bike_fit
-          
-          # 3. [사용자님 제안 반영] V2 임베딩 메타데이터 강제 주입
-          sed -i '/<application/a \        <meta-data android:name="flutterEmbedding" android:value="2" />' android/app/src/main/AndroidManifest.xml
-          
-          # 4. 의존성 새로고침
+          # 1. 기존 android 폴더 제거 후 최신 구조(V2)로 재건
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
-
-      - name: 🔑 [성공] 키스토어 및 서명 설정 (루트 JKS 활용)
-        run: |
-          # 루트에 있는 release.jks를 새로 만든 폴더로 이동
-          cp release.jks android/app/release.jks
           
-          cat <<EOF > android/app/key.properties
-          storePassword=Sodomaki80
-          keyPassword=Sodomaki80
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
+          # 2. V2 선언이 포함된 AndroidManifest 설정
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <application android:label="Indoor_fit_app" android:icon="@mipmap/ic_launcher">
+                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data android:name="flutterEmbedding" android:value="2" />
+              </application>
+          </manifest>
           EOF
+          
+          # 3. MultiDex 활성화
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
 
-      - name: 🚀 [필살기] AAB 빌드 (V1 체크 완전 무력화)
+      - name: 🚀 Build Unsigned AAB
+        # 중복 서명 방지를 위해 순수 빌드 진행
+        run: flutter build appbundle --release --no-tree-shake-icons
+
+      - name: 🖋️ Sign AAB with New Upload Key
         run: |
-          # 빌드 엔진이 구형 파일을 만들 틈을 주지 않기 위해 --no-pub 사용
-          flutter build appbundle --release --no-tree-shake-icons --no-pub
+          # 💡 [핵심] 사용자님이 메인에 올려두신 '새 업로드 키'를 바로 사용합니다.
+          # 파일: release.jks / 비밀번호: Sodomaki80 / 별칭: fresh-upload-key
+          jarsigner -keystore release.jks \
+          -storepass Sodomaki80 -keypass Sodomaki80 \
+          build/app/outputs/bundle/release/app-release.aab fresh-upload-key
 
-      - name: 📦 [완료] AAB 결과물 추출
+      - name: 📦 Upload Final AAB
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Perfect_V2_AAB
-          path: |
-            build/app/outputs/bundle/release/*.aab
-            build/**/*.aab
-          if-no-files-found: error
+          name: BikeFit_Update_AAB_Success
+          path: build/app/outputs/bundle/release/app-release.aab

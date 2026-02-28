@@ -1,4 +1,4 @@
-name: BikeFit Final Ultra Build - SUCCESS
+name: BikeFit Final Ultra Build - GOOGLE CONSOLE TRUE FIX
 
 on:
   workflow_dispatch:
@@ -23,12 +23,10 @@ jobs:
 
       - name: 🏗️ 환경 재건 및 V2 강제 설정
         run: |
-          # 1. 기존 안드로이드 폴더 삭제 후 재생성 (V1 에러 차단)
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
-          
-          # 2. V2 선언이 포함된 Manifest 직접 생성
+
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
               <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
@@ -45,22 +43,27 @@ jobs:
               </application>
           </manifest>
           EOF
-          
-          # 3. MultiDex 활성화 (안전한 sed 사용)
           sed -i '/defaultConfig {/a \        multiDexEnabled true' android/app/build.gradle
 
-      - name: 🚀 Build Pure Release AAB (서명 없이 빌드)
-        # 💡 [핵심] key.properties를 만들지 않고 빌드하면 플러터는 자동으로 '서명되지 않은' AAB를 뱉습니다.
-        # 사용자님의 'Gradle 서명 차단' 의도가 빌드 오류 없이 그대로 실현됩니다.
-        run: flutter build appbundle --release --no-tree-shake-icons
-
-      - name: 🖋️ Sign AAB (새 업로드 키로 단일 서명 수행)
+      - name: 🚀 Build Unsigned Release AAB (Gradle 서명 완전 차단)
         run: |
-          # 💡 [최종 단계] 도장이 없는 깨끗한 release 파일에 사용자님의 새 키로 도장을 찍습니다.
-          # 파일: release.jks / 비밀번호: Sodomaki80 / 별칭: fresh-upload-key
+          # 🔒 Gradle의 signingConfigs와 buildTypes에서 자동 서명 기능 완전 제거
+          sed -i 's/signingConfig signingConfigs.release/\/\/ signingConfig signingConfigs.release/g' android/app/build.gradle
+          sed -i '/signingConfigs {/a\        release { storeFile null }' android/app/build.gradle
+          sed -i '/buildTypes {/a\        release { signingConfig null }' android/app/build.gradle
+          
+          flutter build appbundle --release --no-tree-shake-icons
+
+      - name: 🖋️ Sign AAB (새 업로드 키로 단일 서명)
+        run: |
           jarsigner -keystore release.jks \
           -storepass Sodomaki80 -keypass Sodomaki80 \
           build/app/outputs/bundle/release/app-release.aab fresh-upload-key
+
+      - name: 🔍 Verify Signature (자동 검증)
+        run: |
+          echo "🔎 Checking certificate chain..."
+          keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep "길이"
 
       - name: 📦 최종 AAB 추출
         uses: actions/upload-artifact@v4

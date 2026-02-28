@@ -1,4 +1,4 @@
-name: BikeFit Final Ultra Build - CLEAN SUCCESS
+name: BikeFit Final Ultra Build - NO MORE DOUBLE SIGN
 
 on:
   workflow_dispatch:
@@ -48,7 +48,7 @@ jobs:
 
       - name: 🛠️ Gradle 서명 로직 무력화
         run: |
-          # signingConfig 참조를 null로 변경하여 자동 서명을 방지합니다.
+          # 💡 [사용자 제안] signingConfig를 null로 고정하여 자동 서명을 방지합니다.
           FILE="android/app/build.gradle"
           sed -i 's/signingConfig signingConfigs.debug/signingConfig null/g' $FILE
           sed -i 's/signingConfig signingConfigs.release/signingConfig null/g' $FILE
@@ -56,18 +56,33 @@ jobs:
 
       - name: 🚀 Build Pure Release AAB
         run: |
-          # 💡 [사용자 제안 핵심] 이전 빌드 잔재를 완전히 삭제하여 중복 서명을 방지합니다.
+          # 빌드 전 잔재 삭제
           rm -rf build/app/outputs/bundle/release
-          
-          # 서명되지 않은 순수 Release AAB 생성
           flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 🖋️ Sign AAB (새 업로드 키로 정식 서명)
+      - name: 🖋️ Sign AAB (META-INF 청소 + SHA256 단일 서명)
         run: |
-          # 💡 깨끗하게 새로 생성된 파일에 사용자님의 키로 단 한 번만 서명합니다.
-          jarsigner -keystore release.jks \
-          -storepass Sodomaki80 -keypass Sodomaki80 \
-          build/app/outputs/bundle/release/app-release.aab fresh-upload-key
+          # 1. zipalign (파일 최적화 정렬)
+          zipalign -f -v 4 \
+            build/app/outputs/bundle/release/app-release.aab \
+            build/app/outputs/bundle/release/app-aligned.aab
+
+          # 2. 💡 [핵심 해결책] META-INF 내부의 기존 서명 파일들을 강제로 삭제합니다.
+          # 이 단계가 '인증서 2개' 오류를 원천 차단합니다.
+          zip -d build/app/outputs/bundle/release/app-aligned.aab 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.SF' || true
+
+          # 3. jarsigner로 정식 단일 서명 (SHA-256 사용)
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore release.jks \
+            -storepass Sodomaki80 -keypass Sodomaki80 \
+            build/app/outputs/bundle/release/app-aligned.aab fresh-upload-key
+
+          # 4. 파일 이름 복원
+          mv build/app/outputs/bundle/release/app-aligned.aab \
+            build/app/outputs/bundle/release/app-release.aab
+
+          # 5. 서명 검증 결과 출력 (로그 확인용)
+          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab
 
       - name: 📦 최종 AAB 추출
         uses: actions/upload-artifact@v4

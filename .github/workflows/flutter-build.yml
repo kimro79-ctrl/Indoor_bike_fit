@@ -8,77 +8,72 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: 📥 Checkout
+      - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-
-      - name: ☕ Java 설치
+      - name: ☕ Java 및 Flutter 설정 (3.27.1)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
-
       - name: 🐦 Flutter 설치
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
           channel: stable
 
-
-      - name: 🏗 Android 프로젝트 재생성
+      - name: 🏗️ Android 프로젝트 초기화 (V2 구조)
         run: |
+          # 💡 기존 환경 삭제 후 재생성하여 중복 서명 잔재를 제거합니다.
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          flutter pub get
 
-
-      - name: 📦 패키지 설치
-        run: flutter pub get
-
-
-      - name: 🔑 Upload Keystore 복원
+      - name: 🔑 원본 Keystore 복원 (단일 키)
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/release.jks
-
+          # 💡 Secrets에 저장된 원본 키 하나만 서버로 복원합니다.
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
 
       - name: 🔧 key.properties 생성
         run: |
+          # 💡 Gradle이 서명을 위해 읽어들일 속성 파일을 생성합니다.
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=../release.jks
+          storeFile=release.jks
           EOF
 
-
-      - name: 🛠 build.gradle signingConfig 추가
+      - name: 🛠️ build.gradle 서명 설정 주입
         run: |
-
           FILE=android/app/build.gradle
-
+          
+          # 1. 파일 상단에 필수 import 및 Properties 로드 로직 추가
           sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
+          sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
 
-          sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
-
+          # 2. signingConfigs 내에 release 섹션 추가
           sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
 
+          # 3. buildTypes의 서명을 debug에서 release로 강제 변경 (단일 서명 핵심)
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
+          
+          # 4. MultiDex 활성화 (빌드 안정성)
+          sed -i '/defaultConfig {/a \        multiDexEnabled true' $FILE
 
-
-      - name: 🔍 keystore fingerprint 확인
+      - name: 🔍 키 지문(Fingerprint) 최종 확인
         run: |
+          # 💡 구글이 요구하는 75:CD... 지문과 일치하는지 로그에서 바로 확인 가능합니다.
           keytool -list -v \
-          -keystore android/release.jks \
+          -keystore android/app/release.jks \
           -alias ${{ secrets.KEY_ALIAS }} \
           -storepass ${{ secrets.KEYSTORE_PASSWORD }}
 
-
       - name: 🚀 Release AAB 빌드
-        run: flutter build appbundle --release
+        # 💡 Gradle이 설정된 단일 키로 빌드와 서명을 한 번에 끝냅니다.
+        run: flutter build appbundle --release --no-tree-shake-icons
 
-
-      - name: 📦 AAB 업로드
+      - name: 📦 최종 AAB 결과물 추출
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB

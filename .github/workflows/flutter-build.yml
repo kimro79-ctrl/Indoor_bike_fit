@@ -1,4 +1,4 @@
-name: BikeFit Final Ultra Build - NO MORE DOUBLE SIGN
+name: BikeFit Final Stable Build
 
 on:
   workflow_dispatch:
@@ -6,86 +6,79 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 📥 코드 체크아웃
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: ☕ Setup Java & Flutter (3.27.1)
+      - name: ☕ Java 17 설치
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: 🐦 Flutter 설정
+
+      - name: 🐦 Flutter 설치
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 🏗️ 안드로이드 엔진 재건 (V2 강제 전환)
+      - name: 📦 패키지 설치
+        run: flutter pub get
+
+      - name: 🔑 Keystore 복원
         run: |
-          # 1. 기존 안드로이드 환경 완전 삭제
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          flutter pub get
-          
-          # 2. V2 선언이 포함된 Manifest 생성
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/release.jks
+
+      - name: 🔧 key.properties 생성
+        run: |
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release.jks
+          EOF
+
+      - name: 🏗️ Android Manifest 수정 (V2 embedding)
+        run: |
           cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <application android:label="Indoor_fit_app" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.overthebike.over_the_bike_fit">
+
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+              <application
+                  android:label="Indoor_fit_app"
+                  android:icon="@mipmap/ic_launcher">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme">
+
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
+
                   </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
+
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+
               </application>
           </manifest>
           EOF
 
-      - name: 🛠️ Gradle 서명 로직 무력화
-        run: |
-          # 💡 [사용자 제안] signingConfig를 null로 고정하여 자동 서명을 방지합니다.
-          FILE="android/app/build.gradle"
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig null/g' $FILE
-          sed -i 's/signingConfig signingConfigs.release/signingConfig null/g' $FILE
-          sed -i '/defaultConfig {/a \        multiDexEnabled true' $FILE
+      - name: 🚀 Release AAB 빌드
+        run: flutter build appbundle --release
 
-      - name: 🚀 Build Pure Release AAB
-        run: |
-          # 빌드 전 잔재 삭제
-          rm -rf build/app/outputs/bundle/release
-          flutter build appbundle --release --no-tree-shake-icons
-
-      - name: 🖋️ Sign AAB (META-INF 청소 + SHA256 단일 서명)
-        run: |
-          # 1. zipalign (파일 최적화 정렬)
-          zipalign -f -v 4 \
-            build/app/outputs/bundle/release/app-release.aab \
-            build/app/outputs/bundle/release/app-aligned.aab
-
-          # 2. 💡 [핵심 해결책] META-INF 내부의 기존 서명 파일들을 강제로 삭제합니다.
-          # 이 단계가 '인증서 2개' 오류를 원천 차단합니다.
-          zip -d build/app/outputs/bundle/release/app-aligned.aab 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.SF' || true
-
-          # 3. jarsigner로 정식 단일 서명 (SHA-256 사용)
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore release.jks \
-            -storepass Sodomaki80 -keypass Sodomaki80 \
-            build/app/outputs/bundle/release/app-aligned.aab fresh-upload-key
-
-          # 4. 파일 이름 복원
-          mv build/app/outputs/bundle/release/app-aligned.aab \
-            build/app/outputs/bundle/release/app-release.aab
-
-          # 5. 서명 검증 결과 출력 (로그 확인용)
-          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab
-
-      - name: 📦 최종 AAB 추출
+      - name: 📦 AAB 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_Clean_AAB
+          name: BikeFit_Final_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -28,36 +28,30 @@ jobs:
 
       - name: Restore release keystore
         run: |
-          # android/app 디렉토리를 생성하고 제공된 jks 파일을 복원합니다.
           mkdir -p android/app
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+          # 시크릿 값을 파일로 저장 (개행 문자 처리를 위해 printf 사용)
+          printf "%s" "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
 
       - name: Verify keystore file
         run: |
           echo "Checking restored keystore file..."
-          ls -lh android/app/release.jks
-          # 파일 크기가 0이면 시크릿 설정 오류로 간주하고 중단합니다.
-          if [ ! -s android/app/release.jks ]; then
-            echo "ERROR: release.jks is empty. Please check your GitHub Secret: RELEASE_KEYSTORE"
+          ls -la android/app/release.jks
+          # 파일 크기 확인
+          FILE_SIZE=$(stat -c%s android/app/release.jks)
+          echo "File size: $FILE_SIZE bytes"
+          if [ "$FILE_SIZE" -le 0 ]; then
+            echo "ERROR: release.jks is empty. Check your GitHub Secret 'RELEASE_KEYSTORE'."
             exit 1
           fi
 
       - name: Create key.properties
         run: |
-          # 실제 빌드 시 참조할 키 정보를 생성합니다.
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=app/release.jks
           EOF
-
-      - name: Print keystore SHA1 (Check)
-        run: |
-          # 파일이 유효한지 keytool로 확인합니다.
-          keytool -list -v \
-          -keystore android/app/release.jks \
-          -storepass "${{ secrets.KEYSTORE_PASSWORD }}" | grep SHA1 || echo "Check password or alias"
 
       - name: Build release AAB
         run: flutter build appbundle --release
@@ -67,4 +61,3 @@ jobs:
         with:
           name: BikeFit-AAB
           path: build/app/outputs/bundle/release/app-release.aab
-

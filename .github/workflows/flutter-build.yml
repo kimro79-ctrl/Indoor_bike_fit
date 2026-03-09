@@ -6,36 +6,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Java 및 Flutter 설정 (3.27.1)
+      - name: ☕ Java 설치
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+
       - name: 🐦 Flutter 설치
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
           channel: stable
 
-      - name: 🏗️ Android 프로젝트 초기화
+      - name: 🏗 Android 재생성
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 🔑 진짜 Keystore 복원 (75:CD...)
+      - name: 🔑 Keystore 복원
         run: |
-          # 💡 폴더 생성 후 사용자님이 확인하신 '진짜' 키를 위치시킵니다.
-          mkdir -p android/app
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/release.jks
 
-      - name: 🔧 key.properties 설정
+      - name: 🔧 key.properties 생성
         run: |
-          # 💡 별칭을 사용자님이 확인하신 'fresh-upload-key'로 직접 꽂아줍니다.
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
@@ -43,25 +42,10 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: 🛠️ build.gradle 서명 '강제' 주입
-        run: |
-          FILE=android/app/build.gradle
-          # 1. Properties 로드 로직 추가
-          sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
-          sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
-          
-          # 2. signingConfigs 정의 및 모든 빌드 타입 서명 고정
-          # 💡 Gradle이 디버그 키를 꺼내지 못하게 signingConfig를 하나로 통일합니다.
-          sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
-          
-          # 💡 핵심: debug와 release 모두 무조건 'release' 설정을 쓰게 바꿉니다.
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
+      - name: 🚀 AAB 빌드
+        run: flutter build appbundle --release
 
-      - name: 🚀 Release AAB 빌드
-        # 💡 Gradle이 이제 무조건 사용자님의 진짜 키(75:CD...)를 사용합니다.
-        run: flutter build appbundle --release --no-tree-shake-icons
-
-      - name: 📦 AAB 추출
+      - name: 📦 AAB 업로드
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB

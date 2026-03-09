@@ -8,30 +8,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 코드 체크아웃
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: ☕ Java 설치
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: 🐦 Flutter 설치
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
           channel: stable
 
-      - name: 📦 Flutter 의존성 설치
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: 🔑 Keystore 복원
+      - name: Restore release keystore
         run: |
           mkdir -p android/app
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 -d > android/app/release.jks
 
-      - name: 🔧 key.properties 생성
+      - name: Verify keystore file
+        run: |
+          echo "Checking keystore file..."
+          ls -lh android/app
+          if [ ! -s android/app/release.jks ]; then
+            echo "ERROR: release.jks is empty"
+            exit 1
+          fi
+
+      - name: Create key.properties
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -40,21 +49,21 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: 🔍 Keystore SHA1 확인
+      - name: Print keystore SHA1
         run: |
           keytool -list -v \
           -keystore android/app/release.jks \
           -storepass "${{ secrets.KEYSTORE_PASSWORD }}"
 
-      - name: 🚀 Release AAB 빌드
-        run: flutter build appbundle --release --no-tree-shake-icons
+      - name: Build release AAB
+        run: flutter build appbundle --release
 
-      - name: 🔍 AAB 서명 SHA1 확인
+      - name: Verify AAB signature
         run: |
           keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab
 
-      - name: 📦 AAB 업로드
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_AAB
+          name: BikeFit-AAB
           path: build/app/outputs/bundle/release/app-release.aab

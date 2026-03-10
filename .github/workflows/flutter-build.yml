@@ -32,7 +32,7 @@ jobs:
           mkdir -p android/app
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
 
-      - name: 🔧 서명 설정 강제 주입
+      - name: 🔧 서명 설정 정밀 주입
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -41,11 +41,11 @@ jobs:
           storeFile=release.jks
           EOF
           
-          # 💡 Gradle 에러를 방지하기 위해 파이썬으로 파일을 직접 개조합니다.
+          # 💡 Gradle 규칙에 따라 plugins 블록 뒤에 설정을 삽입합니다.
           python3 -c "
-          import os
           path = 'android/app/build.gradle'
-          content = open(path).read()
+          with open(path, 'r') as f: lines = f.readlines()
+          
           signing_code = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
@@ -65,7 +65,15 @@ jobs:
               }
           }
           '''
-          open(path, 'w').write(signing_code + content)
+          
+          with open(path, 'w') as f:
+              inserted = False
+              for line in lines:
+                  f.write(line)
+                  if 'plugins {' in line and not inserted:
+                      # plugins 블록을 찾는 즉시 그 다음 줄에 서명 코드를 넣습니다.
+                      f.write(signing_code)
+                      inserted = True
           "
 
       - name: 🚀 AAB 빌드 실행

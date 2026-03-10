@@ -1,39 +1,36 @@
-name: BikeFit PEM Key Generator
+name: Brand New Key For Google
 
 on:
   workflow_dispatch:
 
 jobs:
-  generate:
+  get_pem:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Generate password-protected private key
+      - name: 🔑 완전히 새로운 업로드 키 생성
         run: |
-          openssl genrsa -aes256 -passout pass:BikeFit@2026 -out private_key.pem 2048
+          # 별칭을 bikefitkey2026으로 고정하여 인식 오류 방지
+          keytool -genkey -v -keystore final_upload_key.jks \
+            -alias bikefitkey2026 \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "password123" -keypass "password123" \
+            -dname "CN=BikeFit, O=Dev, C=KR"
 
-      - name: Create certificate (PEM)
+      - name: 📄 PEM 인증서 추출 및 직접 출력
         run: |
-          openssl req -new -x509 \
-          -key private_key.pem \
-          -passin pass:BikeFit@2026 \
-          -out certificate.pem \
-          -days 3650 \
-          -subj "/C=KR/ST=Chungbuk/L=Cheongju/O=BikeFit/OU=Mobile/CN=OverTheBikeFit"
+          # 고정된 별칭으로 인증서 추출
+          keytool -export -rfc -keystore final_upload_key.jks \
+            -alias bikefitkey2026 -file upload_certificate.pem -storepass "password123"
+          
+          echo "------------------------------------------------------"
+          echo "⬇️ 아래 내용을 전체 복사해서 구글 플레이 콘솔에 제출하세요 ⬇️"
+          echo "------------------------------------------------------"
+          cat upload_certificate.pem
+          echo "------------------------------------------------------"
 
-      - name: Extract public key
-        run: |
-          openssl x509 -in certificate.pem -pubkey -noout > public_key.pem
-
-      - name: Show SHA1 fingerprint
-        run: |
-          openssl x509 -in certificate.pem -noout -fingerprint -sha1
-
-      - name: Upload PEM files
+      - name: 📤 PEM 파일 단독 업로드 (압축 해제 불필요)
         uses: actions/upload-artifact@v4
         with:
-          name: bikefit_pem_keys
-          path: |
-            private_key.pem
-            certificate.pem
-            public_key.pem
+          name: upload_certificate.pem # 결과물 이름을 .pem으로 명시
+          path: upload_certificate.pem
+          compression-level: 0 # 압축 끄기

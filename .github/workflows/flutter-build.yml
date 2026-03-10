@@ -1,4 +1,4 @@
-name: BikeFit Final Victory - SHA1 Verification
+name: BikeFit Final Victory - Build Fix
 
 on:
   workflow_dispatch:
@@ -30,19 +30,47 @@ jobs:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
-          # 모바일 복사 시 발생하는 줄바꿈 등을 제거하고 복원합니다.
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
-          if [ ! -s android/app/release.jks ]; then
-            echo "❌ Keystore 파일 복원 실패!"
-            exit 1
-          fi
+          if [ ! -s android/app/release.jks ]; then exit 1; fi
 
-      - name: 🕵️ [필독] 현재 사용 중인 키 지문 확인
-        # 빌드 전, Secret에 넣은 키가 진짜 75:CD... 인지 로그에 출력합니다.
+      - name: 🔧 Gradle 서명 설정 강제 주입
+        # 💡 plugins 블록 외부 삽입 + 별칭 오류 방지 로직
         run: |
-          echo "검사 대상 별칭: fresh-upload-key"
-          keytool -list -v -keystore android/app/release.jks \
-            -alias fresh-upload-key \
-            -storepass ${{ secrets.KEYSTORE_PASSWORD }} | grep SHA1 || echo "⚠️ 별칭 불일치 또는 키 오류"
-
-      - name: 🔧 Gradle 서명 설정
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=fresh-upload-key
+          storeFile=release.jks
+          EOF
+          
+          python3 -c "
+          path = 'android/app/build.gradle'
+          with open(path, 'r') as f: lines = f.readlines()
+          
+          signing_code = '''
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+          }
+          
+          android {
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          '''
+          
+          with open(path, 'w') as f:
+              inserted = False
+              for line in lines

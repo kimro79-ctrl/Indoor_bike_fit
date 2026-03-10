@@ -1,4 +1,4 @@
-name: BikeFit Final Victory - Perfect Syntax
+name: BikeFit Final Victory - Perfect Signing & Audit
 
 on:
   workflow_dispatch:
@@ -19,22 +19,36 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      - name: 🏗️ 프로젝트 초기화
+      - name: 🏗️ 프로젝트 초기화 (Android 리셋)
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 🔑 진짜 Keystore 복원 (75:CD...)
+      - name: 🔑 진짜 Keystore 복원 및 1차 검증
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
+          # 모바일 복사 시 발생하는 줄바꿈 제거 후 복원
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
-          if [ ! -s android/app/release.jks ]; then exit 1; fi
+          
+          # 파일이 비어있으면 즉시 실패 처리
+          if [ ! -s android/app/release.jks ]; then
+            echo "❌ ERROR: Keystore file is empty or missing!"
+            exit 1
+          fi
 
-      - name: 🔧 Gradle 서명 설정 정밀 주입 (블록 외부 삽입)
-        # 💡 [핵심] plugins { ... } 블록이 닫히는 '}'를 찾은 후에 코드를 넣습니다.
+      - name: 🕵️ [중요] 사용 중인 키의 진짜 SHA1 확인
+        # 💡 빌드 전, Secret에 저장된 키가 구글용(75:CD...)인지 로그에서 바로 확인합니다.
+        run: |
+          echo "검사 대상 키 별칭: fresh-upload-key"
+          keytool -list -v -keystore android/app/release.jks \
+            -alias fresh-upload-key \
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} | grep SHA1
+
+      - name: 🔧 Gradle 서명 설정 정밀 주입 (문법 오류 방지)
+        # 💡 plugins { } 블록이 닫히는 지점을 찾아 그 뒤에 삽입하여 Gradle 에러를 방지합니다.
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -74,9 +88,7 @@ jobs:
               inserted = False
               for line in lines:
                   f.write(line)
-                  if 'plugins {' in line:
-                      in_plugins = True
-                  # plugins 블록이 닫히는 지점('}')을 찾으면 그 바로 뒤에 삽입
+                  if 'plugins {' in line: in_plugins = True
                   if in_plugins and '}' in line and not inserted:
                       f.write(signing_code)
                       inserted = True
@@ -86,8 +98,8 @@ jobs:
       - name: 🚀 AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 🔍 [최종 확인] SHA1 지문 대조
-        # 💡 여기서 75:CD...가 나오면 626번의 도전은 승리로 끝납니다.
+      - name: 🔍 [최종 확인] 빌드된 AAB 지문 대조
+        # 💡 결과물 지문이 75:CD...인지 마지막으로 확인합니다.
         run: |
           keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 

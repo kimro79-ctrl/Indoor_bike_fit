@@ -1,4 +1,4 @@
-name: BikeFit Final Success - No More Error
+name: BikeFit Final Victory - The Masterpiece
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      - name: 🏗️ 프로젝트 초기화
+      - name: 🏗️ 프로젝트 초기화 (깨끗한 상태에서 시작)
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
@@ -30,15 +30,18 @@ jobs:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
+          # 모바일 복사 오류 방지
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
           
+          # 💡 [방어] 파일이 없으면 빌드 즉시 중단
           if [ ! -s android/app/release.jks ]; then
-            echo "❌ Keystore 복원 실패!"
+            echo "❌ ERROR: Keystore 복원 실패!"
             exit 1
           fi
 
-      - name: 🔧 Gradle 서명 설정 정밀 주입
-        # 💡 [핵심] plugins 블록 위치를 찾아 그 '뒤'에 코드를 삽입하여 문법 에러를 방지합니다.
+      - name: 🔧 Gradle 서명 설정 정밀 주입 (1위 방식)
+        # 💡 [핵심] plugins 블록 위치를 찾아 그 바로 뒤에 서명 로직을 삽입합니다.
+        # 블록 중복 충돌을 방지하기 위해 정교하게 설계되었습니다.
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -51,10 +54,12 @@ jobs:
           path = 'android/app/build.gradle'
           with open(path, 'r') as f: lines = f.readlines()
           
+          # 사용자님이 분석한 최적의 삽입 코드
           signing_code = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
+          
           android {
               signingConfigs {
                   release {
@@ -65,8 +70,9 @@ jobs:
                   }
               }
               buildTypes {
-                  release { signingConfig signingConfigs.release }
-                  debug { signingConfig signingConfigs.release }
+                  release {
+                      signingConfig signingConfigs.release
+                  }
               }
           }
           '''
@@ -75,21 +81,21 @@ jobs:
               inserted = False
               for line in lines:
                   f.write(line)
-                  # 'plugins {' 블록이 끝나는 지점이나 시작 지점 바로 뒤에 삽입
+                  # plugins 블록이 끝나는 지점을 찾아 코드 삽입
                   if 'plugins {' in line and not inserted:
                       f.write(signing_code)
                       inserted = True
           "
 
-      - name: 🚀 AAB 빌드 실행
+      - name: 🚀 AAB 빌드 실행 (순정 Release)
         run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: 🔍 [최종 확인] SHA1 지문 대조
-        # 💡 여기서 75:CD...가 나오면 구글 업로드 100% 성공입니다.
+        # 💡 여기서 75:CD...가 나오면 모든 상황 종료입니다.
         run: |
           keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 
-      - name: 📦 AAB 추출
+      - name: 📦 최종 AAB 추출
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB

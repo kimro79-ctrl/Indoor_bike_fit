@@ -1,36 +1,77 @@
-name: Brand New Key For Google
+name: BikeFit Final Success Build
 
 on:
   workflow_dispatch:
 
 jobs:
-  get_pem:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 🔑 완전히 새로운 업로드 키 생성
-        run: |
-          # 별칭을 bikefitkey2026으로 고정하여 인식 오류 방지
-          keytool -genkey -v -keystore final_upload_key.jks \
-            -alias bikefitkey2026 \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "password123" -keypass "password123" \
-            -dname "CN=BikeFit, O=Dev, C=KR"
+      - name: 📥 코드 체크아웃
+        uses: actions/checkout@v4
 
-      - name: 📄 PEM 인증서 추출 및 직접 출력
+      - name: ☕ Java 및 Flutter 설정 (3.27.1)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: 🐦 Flutter 설치
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.27.1
+          channel: stable
+
+      - name: 🏗️ Android 프로젝트 초기화
         run: |
-          # 고정된 별칭으로 인증서 추출
-          keytool -export -rfc -keystore final_upload_key.jks \
-            -alias bikefitkey2026 -file upload_certificate.pem -storepass "password123"
+          rm -rf android
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
+          flutter pub get
+
+      - name: 🔑 진짜 Keystore 복원 (75:CD...)
+        run: |
+          # 💡 디렉토리를 생성하고 사용자님이 확인하신 '진짜' 키를 위치시킵니다.
+          mkdir -p android/app
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+
+      - name: 🔧 key.properties 설정
+        run: |
+          # 💡 별칭을 사용자님이 확인하신 'fresh-upload-key'로 직접 지정합니다 .
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=fresh-upload-key
+          storeFile=release.jks
+          EOF
+
+      - name: 🛠️ build.gradle 서명 '강제' 주입
+        run: |
+          FILE=android/app/build.gradle
+          # 1. Properties 로드 로직 추가
+          sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
+          sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
           
-          echo "------------------------------------------------------"
-          echo "⬇️ 아래 내용을 전체 복사해서 구글 플레이 콘솔에 제출하세요 ⬇️"
-          echo "------------------------------------------------------"
-          cat upload_certificate.pem
-          echo "------------------------------------------------------"
+          # 2. signingConfigs 정의 및 모든 빌드 타입 서명 고정
+          # 💡 signingConfigs 블록 내부에 release 설정을 추가합니다.
+          sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
+          
+          # 3. [핵심] debug와 release 빌드 타입 모두 'release' 설정을 쓰도록 강제합니다.
+          # 이 작업이 없으면 Gradle은 자동으로 debug.keystore를 선택합니다.
+          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
 
-      - name: 📤 PEM 파일 단독 업로드 (압축 해제 불필요)
+      - name: 🔍 빌드 전 키 지문 최종 대조
+        run: |
+          # 💡 빌드 직전, 파일이 정상이고 지문이 75:CD...인지 로그로 찍어 확인합니다.
+          keytool -list -v \
+          -keystore android/app/release.jks \
+          -alias fresh-upload-key \
+          -storepass ${{ secrets.KEYSTORE_PASSWORD }}
+
+      - name: 🚀 Release AAB 빌드
+        # 💡 이제 Gradle은 무조건 사용자님의 진짜 키(75:CD...)를 사용합니다.
+        run: flutter build appbundle --release --no-tree-shake-icons
+
+      - name: 📦 AAB 추출
         uses: actions/upload-artifact@v4
         with:
-          name: upload_certificate.pem # 결과물 이름을 .pem으로 명시
-          path: upload_certificate.pem
-          compression-level: 0 # 압축 끄기
+          name: BikeFit_Final_AAB
+          path: build/app/outputs/bundle/release/app-release.aab

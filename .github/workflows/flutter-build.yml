@@ -19,57 +19,57 @@ jobs:
           flutter-version: '3.27.1'
           channel: 'stable'
 
-      - name: 1️⃣ 환경 재생성 (v2 Embedding & Clean State)
+      - name: 1️⃣ 환경 재생성 (Clean State)
         run: |
-          # 안드로이드 폴더를 먼저 삭제하여 구형 설정을 완전히 제거합니다.
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 2️⃣ 키스토어 및 인증서 복원 (재생성된 폴더 내)
+      - name: 2️⃣ 키스토어 복원 및 데이터 검증
         run: |
-          # 재생성된 폴더 안에 안전하게 키스토어를 복원합니다.
           mkdir -p android/app
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
-          echo "${{ secrets.FRESH_CERTIFICATE_PEM }}" > android/app/fresh_certificate.pem
           
-          # 파일 존재 및 크기 확인
-          ls -la android/app/release.jks
-          if [ ! -s android/app/release.jks ]; then
-            echo "ERROR: Keystore restoration failed!"
+          # Secrets 값이 비어있는지 먼저 확인
+          if [ -z "${{ secrets.RELEASE_KEYSTORE }}" ]; then
+            echo "ERROR: GitHub Secret 'RELEASE_KEYSTORE' is EMPTY!"
             exit 1
           fi
 
-      - name: 🔍 3️⃣ SHA-1 지문 대조 검증 (암호학적 신원 확인)
-        run: |
-          echo "--- Keystore SHA-1 (JKS) ---"
-          keytool -list -v -keystore android/app/release.jks -storepass ${{ secrets.KEYSTORE_PASSWORD }} -alias fresh-upload-key | grep SHA1
+          # base64 디코딩 후 파일 생성
+          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
           
-          echo "--- Certificate SHA-1 (PEM) ---"
-          keytool -printcert -file android/app/fresh_certificate.pem | grep SHA1
-          
-          echo "두 지문이 일치해야 수학적으로 동일한 도장입니다."
+          # 파일 크기 재확인 (0바이트 방지)
+          ls -la android/app/release.jks
+          if [ ! -s android/app/release.jks ]; then
+            echo "ERROR: Decoded release.jks is 0 bytes. Check your base64 string!"
+            exit 1
+          fi
 
-      - name: 4️⃣ Gradle 서명 로직 및 권한 주입
+      - name: 3️⃣ 서명 정보 및 Gradle 주입
         run: |
-          # build.gradle에 signingConfigs 강제 주입
+          # key.properties 작성 (별칭: fresh-upload-key)
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=fresh-upload-key
+          storeFile=release.jks
+          EOF
+
+          # build.gradle 서명 로직 강제 주입
           cat <<EOF > android/app/build.gradle
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) {
               keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
-
           plugins {
               id "com.android.application"
               id "kotlin-android"
               id "dev.flutter.flutter-gradle-plugin"
           }
-
           android {
               namespace "com.overthebike.over_the_bike_fit"
               compileSdk 34
-
               signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
@@ -78,7 +78,6 @@ jobs:
                       storePassword keystoreProperties['storePassword']
                   }
               }
-
               buildTypes {
                   release {
                       signingConfig signingConfigs.release
@@ -86,59 +85,25 @@ jobs:
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                   }
               }
-
               defaultConfig {
                   applicationId "com.overthebike.over_the_bike_fit"
                   minSdk 21
                   targetSdk 34
-                  versionCode 10
-                  versionName "1.1.0"
-                  multiDexEnabled true
+                  versionCode 12  # 기존보다 높은 버전 코드 부여
+                  versionName "1.2.0"
               }
           }
-
           flutter { source '../..' }
           EOF
 
-          # AndroidManifest 설정
-          cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.overthebike.over_the_bike_fit">
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <application android:label="Indoor_fit_app" android:icon="@mipmap/ic_launcher">
-                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-          </manifest>
-          EOF
-
-      - name: 5️⃣ 서명 정보 최종 설정
-        run: |
-          cat <<EOF > android/key.properties
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
-          EOF
-
-      - name: 6️⃣ Build Release AAB
+      - name: 4️⃣ Build Release AAB
         run: |
           flutter clean
           flutter pub get
           flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 🛡️ 최종 생성물 서명 확인
+      - name: 5️⃣ 최종 AAB 지문 확인 (SHA1 체크용)
         run: |
           keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: BikeFit_Verified_Success
-          path: build/app/outputs/bundle/release/app-release.aab

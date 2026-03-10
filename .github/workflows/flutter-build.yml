@@ -1,36 +1,39 @@
-name: Brand New Key For Google
+name: BikeFit PEM Key Generator
 
 on:
   workflow_dispatch:
 
 jobs:
-  get_pem:
+  generate:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 🔑 완전히 새로운 업로드 키 생성
+      - name: Generate password-protected private key
         run: |
-          # 보안 정책상 중복을 피하기 위해 시각을 포함한 새 별칭 생성
-          keytool -genkey -v -keystore final_upload_key.jks \
-            -alias bikefit_final_$(date +%s) \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "password123" -keypass "password123" \
-            -dname "CN=BikeFit, O=Dev, C=KR"
+          openssl genrsa -aes256 -passout pass:BikeFit@2026 -out private_key.pem 2048
 
-      - name: 📄 PEM 인증서 추출 및 직접 출력
+      - name: Create certificate (PEM)
         run: |
-          # PEM 파일을 추출합니다.
-          keytool -export -rfc -keystore final_upload_key.jks \
-            -alias bikefit_final_* -file upload_certificate.pem -storepass "password123"
-          
-          echo "------------------------------------------------------"
-          echo "⬇️ 아래 [PEM 내용] 전체를 복사해서 메모장에 .pem으로 저장하세요 ⬇️"
-          echo "------------------------------------------------------"
-          cat upload_certificate.pem
-          echo "------------------------------------------------------"
+          openssl req -new -x509 \
+          -key private_key.pem \
+          -passin pass:BikeFit@2026 \
+          -out certificate.pem \
+          -days 3650 \
+          -subj "/C=KR/ST=Chungbuk/L=Cheongju/O=BikeFit/OU=Mobile/CN=OverTheBikeFit"
 
-      - name: 📦 GitHub Artifacts에 생파일 그대로 노출
+      - name: Extract public key
+        run: |
+          openssl x509 -in certificate.pem -pubkey -noout > public_key.pem
+
+      - name: Show SHA1 fingerprint
+        run: |
+          openssl x509 -in certificate.pem -noout -fingerprint -sha1
+
+      - name: Upload PEM files
         uses: actions/upload-artifact@v4
         with:
-          name: upload_certificate_file # 폴더명처럼 생성됨
-          path: upload_certificate.pem
-          compression-level: 0 # 압축을 하지 않도록 설정
+          name: bikefit_pem_keys
+          path: |
+            private_key.pem
+            certificate.pem
+            public_key.pem

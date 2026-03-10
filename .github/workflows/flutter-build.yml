@@ -1,4 +1,4 @@
-name: BikeFit Final Victory
+name: BikeFit Final Ultra Stable
 
 on:
   workflow_dispatch:
@@ -19,67 +19,33 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      - name: 🏗️ 프로젝트 리셋
+      - name: 🏗️ 프로젝트 초기화 (Gradle 개조 없음)
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 🔑 Keystore 복원
+      - name: 🔑 Keystore 및 서명 정보 복원
+        # 💡 Base64 줄바꿈 제거 및 파일 생성
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
-
-      - name: 🔧 서명 설정 정밀 주입
-        run: |
+          
+          # 💡 Flutter 기본 구조가 인식하는 key.properties 생성
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-          
-          # 💡 Gradle 규칙에 따라 plugins 블록 뒤에 설정을 삽입합니다.
-          python3 -c "
-          path = 'android/app/build.gradle'
-          with open(path, 'r') as f: lines = f.readlines()
-          
-          signing_code = '''
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
-          android {
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
-              buildTypes {
-                  release { signingConfig signingConfigs.release }
-                  debug { signingConfig signingConfigs.release }
-              }
-          }
-          '''
-          
-          with open(path, 'w') as f:
-              inserted = False
-              for line in lines:
-                  f.write(line)
-                  if 'plugins {' in line and not inserted:
-                      # plugins 블록을 찾는 즉시 그 다음 줄에 서명 코드를 넣습니다.
-                      f.write(signing_code)
-                      inserted = True
-          "
 
-      - name: 🚀 AAB 빌드 실행
+      - name: 🚀 AAB 빌드 실행 (Flutter 기본 서명 로직 사용)
+        # 💡 추가 설정 없이 flutter build가 key.properties를 자동으로 읽습니다.
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 AAB 추출
+      - name: 📦 최종 AAB 추출
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB

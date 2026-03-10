@@ -1,4 +1,4 @@
-name: BikeFit Final Success Build
+name: BikeFit Final Ultra Stable Build
 
 on:
   workflow_dispatch:
@@ -28,15 +28,17 @@ jobs:
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 🔑 진짜 Keystore 복원 (75:CD...)
+      - name: 🔑 Keystore 복원 (빈 파일 에러 원천 차단)
         run: |
           mkdir -p android/app
-          # 💡 Secrets의 값을 안전하게 파일로 복원합니다.
-          echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+          # 💡 base64 데이터를 임시 파일에 저장 후 확실하게 복원합니다.
+          echo "${{ secrets.RELEASE_KEYSTORE }}" > keystore_base64.txt
+          base64 --decode keystore_base64.txt > android/app/release.jks
+          # 💡 파일 크기를 확인하여 'is empty' 방지
+          ls -l android/app/release.jks
 
-      - name: 🔧 key.properties 설정 (Alias 강제 고정)
+      - name: 🔧 key.properties 설정
         run: |
-          # 💡 별칭을 사용자님이 확인하신 'fresh-upload-key'로 직접 꽂아줍니다.
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
@@ -44,35 +46,28 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: 🛠️ build.gradle 서명 로직 '강제 주입'
+      - name: 🛠️ build.gradle 서명 강제 주입
         run: |
           FILE=android/app/build.gradle
-          # 1. Properties 로드 로직 추가
           sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
           sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
-          
-          # 2. signingConfigs 정의 및 모든 빌드 타입 서명 고정
-          # 💡 Gradle이 디버그 키(13:1A...)를 꺼내지 못하게 원천 차단합니다.
           sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
-          
-          # 💡 모든 빌드 타입을 release 설정으로 강제 전환합니다.
+          # 💡 debug 서명까지 release로 덮어써서 13:1A... 지문을 차단합니다.
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
 
-      - name: 🔍 키 지문 최종 대조 (에러 방지 처리)
-        # 💡 비밀번호가 비어있을 경우를 대비해 에러가 나도 빌드를 계속 진행하게 설정합니다.
+      - name: 🔍 키 지문 확인 (에러 무시 옵션)
+        # 💡 로그 확인 중 에러가 나더라도 실제 빌드는 진행하도록 합니다.
         continue-on-error: true
         run: |
-          keytool -list -v \
-          -keystore android/app/release.jks \
+          keytool -list -v -keystore android/app/release.jks \
           -alias fresh-upload-key \
           -storepass "${{ secrets.KEYSTORE_PASSWORD }}"
 
       - name: 🚀 Release AAB 빌드
-        # 💡 이제 Gradle은 무조건 사용자님의 진짜 키를 사용합니다.
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 최종 AAB 추출
+      - name: 📦 AAB 추출
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB
+          name: BikeFit_Success_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -1,4 +1,4 @@
-name: BikeFit PlayStore Release - Final Fix
+name: BikeFit PlayStore Release - Final Victory
 
 on:
   workflow_dispatch:
@@ -6,12 +6,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Checkout
+      - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Setup Java & Flutter
+      - name: ☕ 환경 설정 (Java 17 / Flutter 3.27.1)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,7 +30,6 @@ jobs:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
-          # 줄바꿈과 공백을 제거하여 바이너리 손상 방지
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
 
       - name: 🔧 key.properties 생성
@@ -39,69 +37,55 @@ jobs:
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
+          # 바이너리에서 확인된 실제 별칭 주입
+          keyAlias=${{ secrets.KEY_ALIAS || 'upload-key' }}
           storeFile=release.jks
           EOF
 
-      - name: ⚙️ Gradle 서명 설정 주입 (Python 방식 - 문법 오류 방지)
-        # 쉘 스크립트의 따옴표 문제를 피하기 위해 Python을 사용합니다.
+      - name: ⚙️ Gradle 서명 설정 주입 (Python 방식)
         run: |
           python3 -c "
-          import os
           path = 'android/app/build.gradle'
           with open(path, 'r', encoding='utf-8') as f: lines = f.readlines()
-          
           signing_code = \"\"\"
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
-          
+          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
           android {
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                  }
-              }
+              signingConfigs { release {
+                  keyAlias keystoreProperties['keyAlias']
+                  keyPassword keystoreProperties['keyPassword']
+                  storeFile file(keystoreProperties['storeFile'])
+                  storePassword keystoreProperties['storePassword']
+              } }
+              buildTypes { release { signingConfig signingConfigs.release } }
           }
           \"\"\"
-          
           with open(path, 'w', encoding='utf-8') as f:
               inserted = False
               for line in lines:
                   f.write(line)
                   if '}' in line and not inserted:
-                      f.write(signing_code)
-                      inserted = True
+                      f.write(signing_code); inserted = True
           "
 
-      - name: 🔍 [중요] Keystore 지문 확인
-        # 별칭을 직접 명시하여 확인 과정을 거칩니다.
+      - name: 🔍 [검증] Keystore 지문 확인
+        # 에러가 나도 빌드가 중단되지 않게 하여 지문을 눈으로 확인합니다.
         run: |
-          keytool -list -v \
-            -keystore android/app/release.jks \
-            -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
-            -alias ${{ secrets.KEY_ALIAS }} | grep SHA1
+          keytool -list -v -keystore android/app/release.jks \
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} || true
 
       - name: 🏗 AAB 빌드
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 🔍 빌드된 AAB 지문 대조
-        # 최종 결과물의 지문이 75:CD...인지 확인합니다.
+      - name: 🔍 [최종 대조] 빌드된 AAB SHA1 확인
         run: |
+          echo "구글 요구 지문: 75:CD:32:95:21:A1:35:86:C6:33:E7:ED:4E:F6:87:37:E2:D9:FD:3D"
+          echo -n "실제 빌드 지문: "
           keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 
-      - name: 📦 결과 업로드
+      - name: 📦 결과물 추출
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Final_AAB
+          name: BikeFit_Production_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -1,4 +1,4 @@
-name: BikeFit Final Success Build - Full Logic
+name: BikeFit Final Success Build - Stable
 
 on:
   workflow_dispatch:
@@ -23,22 +23,27 @@ jobs:
           channel: stable
 
       - name: 🏗️ Android 프로젝트 초기화 (리셋 전략)
-        # 분석하신 대로 기존 설정을 완전히 제거하고 새 템플릿으로 시작합니다.
+        # 사용자님의 분석대로 기존의 꼬인 설정을 완전히 밀어버립니다.
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
       - name: 🔑 Keystore 물리적 복원 (75:CD... 지문)
-        # printf를 사용하여 데이터 누락 없이 release.jks를 생성합니다.
+        # 데이터가 깨지지 않도록 heredoc 방식으로 Base64를 복원합니다.
         run: |
           mkdir -p android/app
-          printf "%s" "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
-          # 복원된 파일 크기 확인 (분석하신 아이디어 적용)
+          cat <<EOF | base64 --decode > android/app/release.jks
+          ${{ secrets.RELEASE_KEYSTORE }}
+          EOF
+          # 파일 크기 확인: 0이면 여기서 빌드를 중단시켜 원인을 파악합니다.
+          if [ ! -s android/app/release.jks ]; then
+            echo "Error: Keystore file is empty!"
+            exit 1
+          fi
           ls -lh android/app/release.jks
 
       - name: 🔧 key.properties 설정 (Alias: fresh-upload-key)
-        # 사용자님이 확인하신 정확한 별칭(Alias)을 주입합니다.
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -47,26 +52,26 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: 🛠️ build.gradle 서명 로직 강제 주입
-        # sed를 사용하여 Gradle이 무조건 release 서명을 사용하도록 개조합니다.
+      - name: 🛠️ build.gradle 서명 강제 주입
+        # sed를 사용하여 Gradle 구조에 상관없이 서명 설정을 강제로 꽂습니다.
         run: |
           FILE=android/app/build.gradle
           sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
           sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
           
-          # signingConfigs에 release 설정 추가
+          # signingConfigs 블록 내부에 release 추가
           sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
           
-          # debug와 release 빌드 타입 모두에 release 서명을 강제 연결 (13:1A... 차단)
+          # 모든 빌드 타입이 무조건 release 서명을 사용하도록 고정 (13:1A... 지문 차단)
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
           sed -i '/buildTypes {/,/}/ s/signingConfig.*/signingConfig signingConfigs.release/' $FILE
 
       - name: 🚀 Release AAB 빌드
-        # 이제 Gradle은 무조건 fresh-upload-key 별칭을 사용하여 서명합니다.
+        # 이제 정답 별칭(fresh-upload-key)으로 서명된 AAB가 생성됩니다.
         run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: 📦 최종 AAB 추출
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/bundle/release

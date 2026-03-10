@@ -23,25 +23,29 @@ jobs:
           channel: stable
 
       - name: 🏗️ Android 프로젝트 초기화 (리셋 전략)
+        # 꼬인 설정을 완전히 밀어버리고 새 프로젝트 상태에서 시작합니다.
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
       - name: 🔑 Keystore 물리적 복원 (75:CD... 지문)
-        # 💡 printf를 사용하면 특수문자 유실 없이 가장 정확하게 복원됩니다.
+        # 💡 Secrets 데이터를 환경 변수로 넘겨 처리하는 가장 안전한 방식입니다.
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
-          printf "%s" "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > android/app/release.jks
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
           
-          # 💡 파일 크기 검증: 0byte면 여기서 즉시 중단합니다.
+          # 💡 [검증] 파일 크기가 0이면 여기서 실패 처리하여 'Empty' 에러를 방지합니다.
           if [ ! -s android/app/release.jks ]; then
-            echo "❌ ERROR: Keystore file is empty! Check your GitHub Secret 'RELEASE_KEYSTORE'."
+            echo "❌ 에러: Keystore 파일이 비어있습니다. GitHub Secrets의 RELEASE_KEYSTORE 값을 확인해주세요."
             exit 1
           fi
           ls -lh android/app/release.jks
 
       - name: 🔧 key.properties 설정 (Alias: fresh-upload-key)
+        # 사용자님이 확인하신 'fresh-upload-key'를 별칭으로 고정합니다.
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -51,6 +55,7 @@ jobs:
           EOF
 
       - name: 🛠️ build.gradle 서명 강제 주입
+        # Gradle이 무조건 우리가 지정한 release 키(75:CD...)만 사용하도록 개조합니다.
         run: |
           FILE=android/app/build.gradle
           sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
@@ -58,7 +63,7 @@ jobs:
           
           sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
           
-          # 💡 debug 서명까지 release로 덮어씌워 지문 충돌을 차단합니다.
+          # 모든 빌드 타입(debug 포함)을 release 서명으로 고정하여 지문 충돌을 원천 차단합니다.
           sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
           sed -i '/buildTypes {/,/}/ s/signingConfig.*/signingConfig signingConfigs.release/' $FILE
 
@@ -69,4 +74,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app

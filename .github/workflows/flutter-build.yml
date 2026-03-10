@@ -1,9 +1,7 @@
-name: BikeFit Final Victory Build
+name: BikeFit Final Victory
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build:
@@ -12,37 +10,29 @@ jobs:
       - name: 📥 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Java 및 Flutter 설정 (3.27.1)
+      - name: ☕ 환경 설정 (Java 17 / Flutter 3.27.1)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-          
-      - name: 🐦 Flutter 설치
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
 
-      - name: 🏗️ Android 프로젝트 리셋
+      - name: 🏗️ 프로젝트 리셋
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      - name: 🔑 Keystore 복원 (사용자님 Secret 사용)
+      - name: 🔑 Keystore 복원
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
-          # 💡 Secret에서 가져온 데이터를 실제 파일로 정밀 복원합니다.
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
-          
-          if [ ! -s android/app/release.jks ]; then
-            echo "❌ Secret 데이터가 비어있습니다. 등록한 값을 다시 확인하세요!"
-            exit 1
-          fi
 
-      - name: 🔧 서명 설정 주입
+      - name: 🔧 서명 설정 강제 주입
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -50,20 +40,38 @@ jobs:
           keyAlias=fresh-upload-key
           storeFile=release.jks
           EOF
-
-      - name: 🛠️ build.gradle 강제 개조 (서명 고정)
-        run: |
-          FILE=android/app/build.gradle
-          sed -i '1i import java.util.Properties\nimport java.io.FileInputStream' $FILE
-          sed -i '/android {/i def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file("key.properties")\nif (keystorePropertiesFile.exists()) {\n    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n}\n' $FILE
-          sed -i '/signingConfigs {/a \        release {\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }' $FILE
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' $FILE
-          sed -i '/buildTypes {/,/}/ s/signingConfig.*/signingConfig signingConfigs.release/' $FILE
+          
+          # 💡 Gradle 에러를 방지하기 위해 파이썬으로 파일을 직접 개조합니다.
+          python3 -c "
+          import os
+          path = 'android/app/build.gradle'
+          content = open(path).read()
+          signing_code = '''
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
+          android {
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+              buildTypes {
+                  release { signingConfig signingConfigs.release }
+                  debug { signingConfig signingConfigs.release }
+              }
+          }
+          '''
+          open(path, 'w').write(signing_code + content)
+          "
 
       - name: 🚀 AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 AAB 추출 (성공 시 파일 생성)
+      - name: 📦 AAB 추출
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_Final_AAB

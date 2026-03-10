@@ -1,41 +1,33 @@
-name: Generate and Download PEM File
+name: Mobile Direct PEM Generator
 
 on:
-  workflow_dispatch: # 모바일에서 'Run workflow' 버튼 클릭
+  workflow_dispatch:
 
 jobs:
-  generate-and-upload:
+  generate-pem:
     runs-on: ubuntu-latest
     steps:
       - name: 🔑 새 키 및 PEM 파일 생성
         run: |
-          # 1. 중복 방지를 위한 완전 새 키 생성
-          keytool -genkey -v -keystore final-upload-key.jks \
+          # 구글 보안 정책 통과를 위해 완전히 새로운 키 생성
+          keytool -genkey -v -keystore mobile-final.jks \
             -alias bikefit-key \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass "password123" \
-            -keypass "password123" \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "password123" -keypass "password123" \
             -dname "CN=BikeFit, O=Dev, C=KR"
 
-          # 2. 구글 제출용 PEM 인증서 파일 추출
-          keytool -export -rfc -keystore final-upload-key.jks -alias bikefit-key -file upload_certificate.pem -storepass "password123"
-          
-          # 3. GitHub Secret용 Base64 값을 텍스트 파일로 저장 (참고용)
-          base64 -w 0 final-upload-key.jks > b64_key.txt
+          # 구글 제출용 PEM 파일 추출
+          keytool -export -rfc -keystore mobile-final.jks \
+            -alias bikefit-key -file upload_certificate.pem -storepass "password123"
 
-      - name: 📦 파일 다운로드 링크 만들기
+      - name: 📤 PEM 파일 바로 다운로드하게 만들기
         uses: actions/upload-artifact@v4
         with:
-          name: Google_Play_Submit_This # 이 이름의 압축파일이 생깁니다
-          path: |
-            upload_certificate.pem
-            b64_key.txt
+          name: upload_certificate.pem # 파일 이름 그대로 업로드
+          path: upload_certificate.pem # 압축(zip)하지 않고 이 파일만 올림
+          if-no-files-found: error
 
-      - name: 🔍 로그에 정보 출력 (확인용)
+      - name: 🔍 비밀번호 정보 출력
         run: |
-          echo "===================================================="
           echo "ALIAS: bikefit-key"
           echo "PASSWORD: password123"
-          echo "===================================================="

@@ -8,36 +8,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 코드 체크아웃
+
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Java 설치
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Flutter 설치
+
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
 
-      - name: Android 프로젝트 재생성
-        run: |
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
-          flutter pub get
 
-      - name: Keystore 복원
+      - name: Install Dependencies
+        run: flutter pub get
+
+
+      - name: Restore Keystore
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
           echo "$KEY_DATA" | tr -d '\n\r ' | base64 -d > android/app/release.jks
-          echo "=== keystore 생성 확인 ==="
+          echo "=== keystore restored ==="
           ls -lh android/app
 
-      - name: key.properties 생성
+
+      - name: Create key.properties
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -46,33 +49,29 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: keystore alias 목록 확인
-        run: |
-          echo "=== keystore alias list ==="
-          keytool -list \
-          -keystore android/app/release.jks \
-          -storepass ${{ secrets.KEYSTORE_PASSWORD }}
 
-      - name: SHA1 확인
+      - name: Verify Keystore SHA1
         run: |
-          echo "=== KEYSTORE SHA1 ==="
+          echo "=== EXPECTED SHA1 ==="
           keytool -list -v \
           -keystore android/app/release.jks \
           -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
           -alias ${{ secrets.KEY_ALIAS }} | grep SHA1
 
-      - name: AAB 빌드
-        run: |
-          flutter build appbundle --release --no-tree-shake-icons --build-number=1003
 
-      - name: AAB SHA1 확인
+      - name: Build AAB
+        run: flutter build appbundle --release --build-number=1004
+
+
+      - name: Verify AAB Signature
         run: |
-          echo "=== AAB SIGNATURE SHA1 ==="
+          echo "=== AAB SHA1 ==="
           keytool -printcert \
           -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 
-      - name: 결과 업로드
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_AAB_Final
+          name: BikeFit-AAB
           path: build/app/outputs/bundle/release/app-release.aab

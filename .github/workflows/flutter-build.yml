@@ -1,4 +1,4 @@
-name: BikeFit PlayStore Release Stable
+name: BikeFit PlayStore Stable Build
 
 on:
   workflow_dispatch:
@@ -9,9 +9,8 @@ jobs:
 
     steps:
 
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
-
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -19,26 +18,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
 
+      - name: Fix Flutter V1 Embedding
+        run: |
+          find android -name "*.kt" -type f -exec sed -i 's/io.flutter.app.FlutterActivity/io.flutter.embedding.android.FlutterActivity/g' {} +
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
-
 
       - name: Restore Keystore
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
           mkdir -p android/app
-          echo "$KEY_DATA" | tr -d '\n\r ' | base64 -d > android/app/release.jks
-          echo "=== keystore restored ==="
-          ls -lh android/app
-
+          echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
 
       - name: Create key.properties
         run: |
@@ -49,28 +46,16 @@ jobs:
           storeFile=release.jks
           EOF
 
-
-      - name: Verify Keystore SHA1
-        run: |
-          echo "=== EXPECTED SHA1 ==="
-          keytool -list -v \
-          -keystore android/app/release.jks \
-          -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
-          -alias ${{ secrets.KEY_ALIAS }} | grep SHA1
-
-
       - name: Build AAB
-        run: flutter build appbundle --release --build-number=1004
+        run: flutter build appbundle --release --build-number=1005
 
-
-      - name: Verify AAB Signature
+      - name: Verify SHA1
         run: |
-          echo "=== AAB SHA1 ==="
-          keytool -printcert \
-          -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
+          echo "Expected SHA1: 75:CD:32:95:21:A1:35:86:C6:33:E7:ED:4E:F6:87:37:E2:D9:FD:3D"
+          echo "Actual SHA1:"
+          keytool -printcert -jarfile build/app/outputs/bundle/release/app-release.aab | grep SHA1
 
-
-      - name: Upload Artifact
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit-AAB

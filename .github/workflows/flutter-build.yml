@@ -1,4 +1,4 @@
-name: BikeFit Final Victory - V2 Embedding & Real Signing
+name: BikeFit Final Victory - Proper Gradle Syntax
 
 on:
   workflow_dispatch:
@@ -22,7 +22,6 @@ jobs:
       - name: 🏗️ 프로젝트 초기화 (Android 리셋 및 V2 강제)
         run: |
           rm -rf android
-          # V2 임베딩이 적용된 깨끗한 안드로이드 프로젝트 생성
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
@@ -33,7 +32,7 @@ jobs:
           mkdir -p android/app
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
 
-      - name: 🔧 key.properties 생성 (app/ 경로 고정)
+      - name: 🔧 key.properties 생성
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -42,19 +41,20 @@ jobs:
           storeFile=app/release.jks
           EOF
 
-      - name: 📑 [결정적 단계] build.gradle을 V2 및 서명 정석 코드로 교체
+      - name: 📑 [결정적 단계] build.gradle 문법 순서 교정
+        # plugins 블록을 최상단으로 올리고 서명 로직을 그 다음에 배치합니다.
         run: |
           cat <<EOF > android/app/build.gradle
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
-
           plugins {
               id "com.android.application"
               id "kotlin-android"
               id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
 
           android {
@@ -92,7 +92,7 @@ jobs:
           }
           EOF
 
-      - name: 🏗 AAB 빌드 실행 (V2 임베딩 적용 상태)
+      - name: 🏗 AAB 빌드 실행
         run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: 🔍 [최종 확인] SHA1 지문 대조
@@ -106,5 +106,5 @@ jobs:
       - name: 📦 결과물 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_Perfect_V2_AAB
+          name: BikeFit_Perfect_Syntax_AAB
           path: build/app/outputs/bundle/release/app-release.aab

@@ -4,32 +4,22 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localProperties.load(new FileInputStream(localPropertiesFile))
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
 }
-
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
-}
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-// ⭐ 이 줄이 빠지면 무조건 V1 에러가 납니다.
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.overthebike.over_the_bike_fit"
-    compileSdkVersion 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.overthebike.over_the_bike_fit"
-        minSdkVersion 21
-        targetSdkVersion 34
-        versionCode 4
-        versionName "1.0.3"
+        minSdk 21
+        targetSdk 35
+        versionCode 1700
+        versionName "1.0.0"
     }
 
     signingConfigs {
@@ -43,7 +33,9 @@ android {
 
     buildTypes {
         release {
+            // 이 줄이 핵심입니다. 위에서 만든 release 설정을 적용합니다.
             signingConfig signingConfigs.release
+            
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -53,8 +45,4 @@ android {
 
 flutter {
     source '../..'
-}
-
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }

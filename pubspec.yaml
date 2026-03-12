@@ -1,7 +1,7 @@
 name: over_the_bike_fit
 description: BikeFit Project (V2 Migration Complete)
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.0+1701
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

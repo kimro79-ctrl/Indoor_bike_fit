@@ -1,4 +1,4 @@
-Name: BikeFit UI Fix - 1704 Victory Run
+name: BikeFit UI Fix - 1704 Victory Run
 
 on:
   workflow_dispatch:
@@ -19,13 +19,9 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      - name: 🧹 [강력 클린] 프로젝트 초기화
+      - name: 🧹 [강력 클린] 빌드 캐시 및 찌꺼기 제거
         run: |
-          # 기존 빌드 및 캐시 삭제
           flutter clean
-          # android 폴더가 있으면 삭제 후 재생성하여 충돌 방지
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
       - name: 🔑 Keystore 복원
@@ -46,11 +42,9 @@ jobs:
 
       - name: 🔍 [검증] SHA-1 및 SHA-256 지문 확인
         run: |
-          echo "========= 구글 콘솔 등록용 SHA 지문 ========="
           keytool -list -v -keystore android/app/release.jks -alias fresh-upload-key -storepass Sodomaki80 -keypass Sodomaki80 | grep -E "SHA1|SHA256"
-          echo "==========================================="
 
-      - name: 📑 build.gradle 직접 작성 (버전 1704 강제 적용)
+      - name: 📑 build.gradle 직접 주입 (버전 1704 강제)
         run: |
           cat <<'EOF' > android/app/build.gradle
           plugins {
@@ -82,7 +76,6 @@ jobs:
                   applicationId "com.overthebike.over_the_bike_fit"
                   minSdk 21
                   targetSdk 35
-                  // ✅ 1704로 버전 업그레이드
                   versionCode 1704
                   versionName "1.0.1"
               }
@@ -110,11 +103,11 @@ jobs:
           }
           EOF
 
-      - name: 🏗️ AAB 빌드 실행 (최종 수정본)
+      - name: 🏗️ AAB 빌드 실행 (최종 클린 빌드)
         run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: 📦 빌드된 AAB 파일 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_1704_Final_AAB
+          name: BikeFit_1704_Final
           path: build/app/outputs/bundle/release/app-release.aab

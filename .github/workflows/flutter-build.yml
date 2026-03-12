@@ -1,4 +1,4 @@
-name: BikeFit UI Fix - Victory Run (1704 Clean)
+name: BikeFit UI Fix - Victory Run (1705 Clean)
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
         run: |
           keytool -list -v -keystore android/app/release.jks -alias fresh-upload-key -storepass Sodomaki80 -keypass Sodomaki80 | grep SHA1
 
-      - name: 📑 build.gradle 직접 작성 (버전 1704 고정)
+      - name: 📑 build.gradle 직접 작성 (버전 1705 고정)
         run: |
           cat <<'EOF' > android/app/build.gradle
           plugins {
@@ -82,7 +82,7 @@ jobs:
                   applicationId "com.overthebike.over_the_bike_fit"
                   minSdk 21
                   targetSdk 35
-                  versionCode 1704
+                  versionCode 1705
                   versionName "1.0.1"
               }
 
@@ -115,5 +115,5 @@ jobs:
       - name: 📦 수정된 AAB 파일 업로드 (1704)
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_1704_Final_AAB
+          name: BikeFit_1705_Final_AAB
           path: build/app/outputs/bundle/release/app-release.aab

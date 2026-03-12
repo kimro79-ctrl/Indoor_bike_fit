@@ -80,7 +80,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     double progress = (_calories / _goalCalories).clamp(0.0, 1.0);
     return Scaffold(
-      backgroundColor: Colors.black, // 이미지 로딩 전 대비
+      backgroundColor: Colors.black,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -99,14 +99,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 Icon(_isWatchConnected ? Icons.watch : Icons.watch_off, color: Colors.greenAccent)
               ]),
               const Spacer(),
-              // 중앙 네온 자전거 이미지
+              // 중앙 자전거 아이콘
               Image.asset(
                 'assets/icon/bike_ui_dark.png', 
                 height: 220, 
                 errorBuilder: (c, e, s) => const Icon(Icons.directions_bike, size: 100, color: Colors.greenAccent)
               ),
               const Spacer(),
-              // 하단 데이터 정보창
+              // 하단 데이터 박스
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(20)),
@@ -122,7 +122,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ]),
               ),
               const SizedBox(height: 30),
-              // 하단 제어 버튼
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _iconBtn(_isWorkingOut ? Icons.pause : Icons.play_arrow, "START", Colors.greenAccent, () {
                   setState(() { _isWorkingOut = !_isWorkingOut; if (_isWorkingOut) { _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) { setState(() { _duration += const Duration(seconds: 1); if (_heartRate >= 95) _calories += 0.15; }); }); } else { _workoutTimer?.cancel(); } });

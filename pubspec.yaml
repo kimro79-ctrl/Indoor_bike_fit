@@ -1,8 +1,8 @@
 name: over_the_bike_fit
 description: "Indoor Bike Fit App"
 publish_to: 'none'
-# ✅ 1702 에러를 피하기 위해 1703으로 확실히 변경
-version: 1.0.1+1703 
+# ✅ 1702 중복 에러 방지를 위해 1703으로 고정
+version: 1.0.1+1703
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -26,10 +26,19 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # ✅ 칸 수를 정확히 맞췄습니다 (에셋 5개 정상 인식)
   assets:
     - assets/background.png
     - assets/icon/app_icon.png
     - assets/icon/heart.png
     - assets/icon/bike_ui_dark.png
     - assets/splash/splash_screen.png
- 
+
+flutter_native_splash:
+  color: "#000000"
+  background_image: "assets/background.png"
+  image: "assets/splash/splash_screen.png"
+  android_12:
+    image: "assets/splash/splash_screen.png"
+    icon_background_color: "#000000"
+  fullscreen: true

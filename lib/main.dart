@@ -249,7 +249,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: BarChart(BarChartData(
-                barTouchData: BarTouchTouchData(
+                barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (group) => Colors.blueAccent.withOpacity(0.8),
                   )

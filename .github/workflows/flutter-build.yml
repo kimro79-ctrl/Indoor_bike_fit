@@ -1,4 +1,4 @@
-name: BikeFit UI Fix - Victory Run (1705 Clean)
+name: BikeFit UI Fix - Victory Run (1706 Clean)
 
 on:
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
         run: |
           keytool -list -v -keystore android/app/release.jks -alias fresh-upload-key -storepass Sodomaki80 -keypass Sodomaki80 | grep SHA1
 
-      - name: 📑 build.gradle 직접 작성 (버전 1705 고정)
+      - name: 📑 build.gradle 직접 작성 (버전 1706 고정)
         run: |
           cat <<'EOF' > android/app/build.gradle
           plugins {
@@ -112,8 +112,8 @@ jobs:
       - name: 🏗️ AAB 빌드 실행 (최종 클린 빌드)
         run: flutter build appbundle --release --no-tree-shake-icons
 
-      - name: 📦 수정된 AAB 파일 업로드 (1704)
+      - name: 📦 수정된 AAB 파일 업로드 (1706)
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_1705_Final_AAB
+          name: BikeFit_1706_Final_AAB
           path: build/app/outputs/bundle/release/app-release.aab

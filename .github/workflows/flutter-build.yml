@@ -21,12 +21,13 @@ jobs:
 
       - name: 🧹 [초강력 클린] 캐시 삭제 및 v2 임베딩 강제 초기화
         run: |
-          # 1. 이전 빌드 찌꺼기 및 android 폴더 완전 삭제
+          # 1. 이전 빌드 기록 및 android 폴더 완전 삭제
           flutter clean
           rm -rf android
           
-          # 2. 최신 규격(v2)으로 Android 프로젝트 재생성 (v1 에러 방지)
-          flutter create . --force --platforms android --org com.overthebike --project-name over_the_bike_fit
+          # 2. Android 프로젝트 재생성 (v1 에러 방지용)
+          # 에러 원인이었던 --force 옵션을 제거했습니다.
+          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
       - name: 🔑 Keystore 복원

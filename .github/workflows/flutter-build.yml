@@ -1,4 +1,4 @@
-name: BikeFit Final Victory - Script Fix
+name: BikeFit Final Victory - Artifact Fix
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      - name: 🏗️ 프로젝트 초기화 (Android 리셋)
+      - name: 🏗️ 프로젝트 초기화 (V2 강제 및 클린)
         run: |
           rm -rf android
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
@@ -32,8 +32,7 @@ jobs:
           mkdir -p android/app
           echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks
 
-      - name: 🔧 key.properties 생성 (경로 오류 완벽 수정)
-        # 사용자님 분석 반영: storeFile=release.jks (android/app 기준)
+      - name: 🔧 key.properties 생성 (사용자 정답 경로)
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -42,16 +41,8 @@ jobs:
           storeFile=release.jks
           EOF
 
-      - name: 🔍 [선행 검증] 빌드 전 SHA1 확인
-        run: |
-          echo "=================================================="
-          echo "목표(Google): 75:CD:32:95:21:A1:35:86:C6:33:E7:ED:4E:F6:87:37:E2:D9:FD:3D"
-          echo -n "복원된 키 지문: "
-          keytool -list -v -keystore android/app/release.jks -alias fresh-upload-key -storepass ${{ secrets.KEYSTORE_PASSWORD }} | grep SHA1
-          echo "=================================================="
-
-      - name: 📑 [결정적 단계] build.gradle 교체 (문자열 보호 버전)
-        # 'EOF'를 사용해야 파일 안의 $ 기호들이 깨지지 않고 그대로 저장됩니다.
+      - name: 📑 [결정적 단계] build.gradle 직접 작성
+        # 변수 깨짐을 방지하기 위해 특수 기호를 조심스럽게 처리한 버전입니다.
         run: |
           cat <<'EOF' > android/app/build.gradle
           plugins {
@@ -67,4 +58,60 @@ jobs:
           }
 
           android {
-              namespace "com.overthebike.over_the_bike_fit
+              namespace "com.overthebike.over_the_bike_fit"
+              compileSdk 35
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+
+              defaultConfig {
+                  applicationId "com.overthebike.over_the_bike_fit"
+                  minSdk 21
+                  targetSdk 35
+                  versionCode 1700
+                  versionName "1.0.0"
+              }
+
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile file(keystoreProperties['storeFile'])
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                      shrinkResources false
+                  }
+              }
+          }
+
+          flutter {
+              source '../..'
+          }
+          EOF
+
+      - name: 🏗 AAB 빌드 실행 (강제 release)
+        run: |
+          flutter build appbundle --release --no-tree-shake-icons
+          
+      - name: 🔍 빌드 파일 존재 여부 확인
+        run: |
+          ls -R build/app/outputs/bundle/release/
+
+      - name: 📦 승리의 AAB 파일 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: BikeFit_Final_Artifact
+          # 경로가 틀릴 경우에 대비해 와일드카드를 사용합니다.
+          path: build/app/outputs/bundle/release/*.aab

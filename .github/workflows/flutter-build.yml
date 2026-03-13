@@ -11,10 +11,11 @@ jobs:
       - name: 🚚 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: ☕ Java 및 Flutter 설정 (최신 버전 3.24.0 이상)
+      - name: ☕ Java 및 Flutter 설정 (최신 버전으로 고정)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0' # 요구사항에 맞춰 최신 안정 버전으로 설정
+          # pubspec.yaml의 3.6.0 요구사항을 충족하기 위해 3.27.0 이상을 사용합니다.
+          flutter-version: '3.27.0' 
           channel: 'stable'
 
       - name: 🧹 Flutter Clean

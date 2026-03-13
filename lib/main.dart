@@ -8,14 +8,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:table_calendar/table_calendar.dart';
+import 'package:table_calendar/table_calendar.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initializeDateFormatting('ko_KR', null);
   runApp(const BikeFitApp());
-}
+} 
 
 class WorkoutRecord {
   final String id;
@@ -23,12 +23,12 @@ class WorkoutRecord {
   final int avgHR;
   final double calories;
   final Duration duration;
-  WorkoutRecord(this.id, this.date, this.avgHR, this.calories, this.duration);
+  WorkoutRecord(this.id, this.date, this.avgHR, this.calories, this.duration); 
 
   Map<String, dynamic> toJson() => {
     'id': id, 'date': date, 'avgHR': avgHR, 'calories': calories, 'durationSeconds': duration.inSeconds
   };
-}
+} 
 
 class BikeFitApp extends StatelessWidget {
   const BikeFitApp({Key? key}) : super(key: key);
@@ -40,12 +40,12 @@ class BikeFitApp extends StatelessWidget {
       home: const WorkoutScreen(),
     );
   }
-}
+} 
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
-}
+} 
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   int _heartRate = 0, _avgHeartRate = 0;
@@ -57,10 +57,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   double _timeCounter = 0;
   List<WorkoutRecord> _records = [];
   List<ScanResult> _filteredResults = [];
-  StreamSubscription? _scanSubscription;
+  StreamSubscription? _scanSubscription; 
 
   @override
-  void initState() { super.initState(); _loadInitialData(); }
+  void initState() { 
+    super.initState(); 
+    _loadInitialData(); 
+    // ✅ 앱 실행 시 즉시 권한 팝업을 띄우는 로직 추가
+    Timer.run(() => _requestPermissions());
+  } 
+
+  // ✅ 터미널 없이도 권한 설정을 유도하는 함수
+  Future<void> _requestPermissions() async {
+    await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
+  }
 
   Future<void> _loadInitialData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -78,7 +92,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         )).toList();
       }
     });
-  }
+  } 
 
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
@@ -101,7 +115,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           Expanded(child: _filteredResults.isEmpty ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) => ListTile(leading: const Icon(Icons.watch, color: Colors.blueAccent), title: Text(_filteredResults[index].device.platformName), onTap: () { Navigator.pop(context); _connectToDevice(_filteredResults[index].device); }))) 
         ]));
       })).whenComplete(() { FlutterBluePlus.stopScan(); _scanSubscription?.cancel(); });
-  }
+  } 
 
   void _connectToDevice(BluetoothDevice device) async { try { await device.connect(); _setupDevice(device); } catch (e) { _showToast("연결 실패"); } }
   void _setupDevice(BluetoothDevice device) async { setState(() { _isWatchConnected = true; }); List<BluetoothService> services = await device.discoverServices(); for (var s in services) { if (s.uuid == Guid("180D")) { for (var c in s.characteristics) { if (c.uuid == Guid("2A37")) { await c.setNotifyValue(true); c.lastValueStream.listen(_decodeHR); } } } } } 
@@ -120,7 +134,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         }
       });
     }
-  }
+  } 
 
   void _showGoalSettings() {
     final controller = TextEditingController(text: _goalCalories.toInt().toString());
@@ -144,9 +158,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ])),
       ),
     );
-  }
+  } 
 
-  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); }
+  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); } 
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +203,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         ),
       ]),
     );
-  }
+  } 
 
   Widget _connectButton() => GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.greenAccent)), child: Text(_isWatchConnected ? "연결됨" : "워치 연결", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold))));
   Widget _chartArea() => SizedBox(height: 60, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: Colors.greenAccent, barWidth: 2, dotData: const FlDotData(show: false))])));
@@ -230,21 +244,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   ]); 
 
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
-}
+} 
 
-// --- 히스토리 리포트 화면 (그래프 빌드 에러 수정됨) ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
   const HistoryScreen({Key? key, required this.records, required this.onSync}) : super(key: key);
   @override _HistoryScreenState createState() => _HistoryScreenState();
-}
+} 
 
 class _HistoryScreenState extends State<HistoryScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   double _weight = 70.0;
-  late List<WorkoutRecord> _currentRecords;
+  late List<WorkoutRecord> _currentRecords; 
 
   @override
   void initState() { 
@@ -252,12 +265,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _currentRecords = List.from(widget.records); 
     _selectedDay = _focusedDay; 
     _loadWeight(); 
-  }
+  } 
 
   Future<void> _loadWeight() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() { _weight = prefs.getDouble('last_weight') ?? 70.0; });
-  }
+  } 
 
   void _showWeightSetting() {
     final controller = TextEditingController(text: _weight.toString());
@@ -270,14 +283,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         setState(() => _weight = nw); Navigator.pop(context);
       }, child: const Text("저장"))],
     ));
-  }
+  } 
 
-  // ✅ 에러가 발생한 부분을 최신 문법으로 수정한 그래프 팝업
   void _showGraphPopup(String title, int days, Color color) {
     final limit = DateTime.now().subtract(Duration(days: days));
     var filtered = _currentRecords.where((r) => DateTime.parse(r.date).isAfter(limit)).toList().reversed.toList();
     double maxCal = filtered.isEmpty ? 100 : filtered.map((e) => e.calories).reduce((a, b) => a > b ? a : b);
-    if (maxCal < 200) maxCal = 200;
+    if (maxCal < 200) maxCal = 200; 
 
     showModalBottomSheet(context: context, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), 
       builder: (context) => Container(height: 350, padding: const EdgeInsets.fromLTRB(20, 15, 20, 20), child: Column(children: [
@@ -295,7 +307,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           barTouchData: BarTouchData(
             enabled: false, 
             touchTooltipData: BarTouchTooltipData(
-              // ✅ 에러가 났던 getTooltipColor를 제거하고 배경색을 투명하게 설정
               tooltipBgColor: Colors.transparent, 
               tooltipMargin: 4, 
               getTooltipItem: (group, groupIndex, rod, rodIndex) => BarTooltipItem(
@@ -310,7 +321,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.bolt, size: 12, color: Colors.orange), Text(" 배경 구간: 소모 칼로리별 운동 강도 가이드", style: TextStyle(fontSize: 10, color: Colors.grey))])
       ]))
     );
-  }
+  } 
 
   void _confirmDelete(String id) {
     showDialog(context: context, builder: (context) => AlertDialog(
@@ -326,11 +337,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         }, child: const Text("삭제", style: TextStyle(color: Colors.redAccent))),
       ],
     ));
-  }
+  } 
 
   @override
   Widget build(BuildContext context) {
-    final dailyRecords = _currentRecords.where((r) => r.date == DateFormat('yyyy-MM-dd').format(_selectedDay!)).toList();
+    final dailyRecords = _currentRecords.where((r) => r.date == DateFormat('yyyy-MM-dd').format(_selectedDay!)).toList(); 
 
     return Theme(
       data: ThemeData(brightness: Brightness.light),
@@ -386,7 +397,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ])),
       ),
     );
-  }
+  } 
 
   Widget _colorBtn(String label, Color color, VoidCallback onTap) => Expanded(child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: onTap, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))));
 }

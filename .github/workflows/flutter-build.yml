@@ -1,4 +1,4 @@
-name: BikeFit UI Fix - Victory Run (1706 Clean) 
+Name: BikeFit UI Fix - Victory Run (1706 Clean) 
 
 on:
   workflow_dispatch: 
@@ -51,6 +51,7 @@ jobs:
 
       - name: 📑 build.gradle 직접 작성 (버전 1706 적용)
         run: |
+          # 파일을 새로 작성합니다. 마지막 EOF는 파일에 포함되지 않도록 주의합니다.
           cat <<'EOF' > android/app/build.gradle
           plugins {
               id "com.android.application"
@@ -81,7 +82,7 @@ jobs:
                   applicationId "com.overthebike.over_the_bike_fit"
                   minSdk 21
                   targetSdk 35
-                  versionCode 1706  // ✅ 1706 버전으로 업데이트
+                  versionCode 1706
                   versionName "1.0.1"
               } 
 
@@ -106,7 +107,7 @@ jobs:
           flutter {
               source '../..'
           }
-          EOF 
+          EOF
 
       - name: 🏗️ AAB 빌드 실행 (Clean UI 수정본)
         run: flutter build appbundle --release --no-tree-shake-icons 

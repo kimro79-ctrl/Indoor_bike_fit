@@ -17,7 +17,7 @@ void main() async {
   runApp(const BikeFitApp());
 }
 
-// 데이터 모델은 기존 그대로 유지
+// --- [데이터 모델] 기존 로직 유지 ---
 class WorkoutRecord {
   final String id;
   final String date;
@@ -43,7 +43,7 @@ class BikeFitApp extends StatelessWidget {
   }
 }
 
-// 스플래시 화면 (기존 그대로)
+// --- [스플래시 화면] ---
 class AssetSplashScreen extends StatefulWidget {
   const AssetSplashScreen({Key? key}) : super(key: key);
   @override
@@ -80,6 +80,7 @@ class _AssetSplashScreenState extends State<AssetSplashScreen> {
   }
 }
 
+// --- [메인 운동 화면] ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -101,28 +102,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
-    // ✅ [중요] 앱이 실행되자마자 모든 필수 권한을 한꺼번에 요청합니다.
+    // ✅ 앱 오픈 시 모든 권한 즉시 요청
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestAllPermissions();
     });
   }
 
-  // ✅ 갤럭시 워치 심박수 수집을 위한 필수 권한 통합 요청
+  // ✅ 갤럭시 워치 필수 권한 통합 요청 (블루투스 + 신체 센서)
   Future<void> _requestAllPermissions() async {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.bluetoothScan,      // 기기 검색
-      Permission.bluetoothConnect,   // 기기 연결
-      Permission.location,           // 블루투스 필수 (GPS)
-      Permission.sensors,            // 심박수 센서 데이터 접근 (신체 센서)
+    await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+      Permission.sensors, // 심박수 센서 권한
     ].request();
-
-    // 사용자가 하나라도 거절했을 경우 안내
-    if (statuses.values.any((status) => status.isDenied)) {
-      _showToast("모든 권한을 허용해야 워치 심박수 사용이 가능합니다.");
-    }
   }
 
-  // 기존 데이터 로드 로직 (변경 없음)
   Future<void> _loadInitialData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -141,24 +136,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // 워치 스캔 로직 (권한 체크 보강)
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
-
-    // 스캔 전 블루투스 권한 다시 확인
-    if (await Permission.bluetoothScan.isDenied) {
-      await _requestAllPermissions();
-      return;
-    }
-
     _filteredResults.clear();
-    try {
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
-    } catch (e) {
-      _showToast("블루투스를 켜주세요.");
-      return;
-    }
-
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -172,15 +154,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             });
           }
         });
-
         return Container(
           padding: const EdgeInsets.all(20),
-          height: MediaQuery.of(context).size.height * 0.5,
+          height: MediaQuery.of(context).size.height * 0.4,
           child: Column(children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            const Text("갤럭시 워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Expanded(
               child: _filteredResults.isEmpty 
                 ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
@@ -205,7 +185,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // 기기 연결 및 서비스 설정 (변경 없음)
   void _connectToDevice(BluetoothDevice device) async {
     try {
       await device.connect();
@@ -250,7 +229,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
   }
 
-  // --- UI 구성 함수 (기존 로직 유지) ---
   Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(fontSize: 10, color: Colors.white60)), const SizedBox(height: 6), Text(v, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c))]);
   
   String _formatDuration(Duration d) => "${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}";
@@ -311,7 +289,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [IconButton(icon: Icon(i, color: Colors.white, size: 30), onPressed: t), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// HistoryScreen 클래스 (기존 그대로 유지)
+// --- [기록 화면] 문법 오류 수정 완료 ---
 class HistoryScreen extends StatelessWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
@@ -321,4 +299,18 @@ class HistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("운동 기록")),
-      body: ListView.
+      body: ListView.builder(
+        itemCount: records.length,
+        itemBuilder: (context, index) {
+          final r = records[index];
+          return ListTile(
+            leading: const Icon(Icons.directions_bike),
+            title: Text("${r.calories.toInt()} kcal 소모"),
+            subtitle: Text("${r.date} / ${r.duration.inMinutes}분"),
+            trailing: Text("${r.avgHR} BPM"),
+          );
+        },
+      ),
+    );
+  }
+}

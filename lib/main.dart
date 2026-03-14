@@ -37,11 +37,42 @@ class BikeFitApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: Colors.black),
-      home: const WorkoutScreen(),
+      home: const AssetSplashScreen(),
     );
   }
 }
 
+// --- [스플래시 화면: 3초 대기 후 메인으로 이동] ---
+class AssetSplashScreen extends StatefulWidget {
+  const AssetSplashScreen({Key? key}) : super(key: key);
+  @override State<AssetSplashScreen> createState() => _AssetSplashScreenState();
+}
+
+class _AssetSplashScreenState extends State<AssetSplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => const WorkoutScreen()));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Text("Indoor bike fit", 
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2)),
+      ),
+    );
+  }
+}
+
+// --- [메인 운동 화면: 진입 시 권한 요청] ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -63,12 +94,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() { 
     super.initState(); 
     _loadInitialData(); 
-    // ✅ 원본의 의도대로 앱 실행 시 즉시 권한 요청
-    Timer.run(() => _requestPermissions());
+    // ✅ 메인 UI 진입 직후 권한 팝업 실행
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
   Future<void> _requestPermissions() async {
-    // 안드로이드 설정에 '근처 기기'를 띄우기 위한 핵심 코드
     await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
@@ -94,17 +124,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
+  // --- 이하 원본 UI 및 로직 유지 ---
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
-    // 검색 팝업 시에도 권한을 한 번 더 체크 (안전장치)
-    await [Permission.bluetoothScan, Permission.bluetoothConnect, Permission.location].request();
-    
     _filteredResults.clear();
     await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
     showModalBottomSheet(
-      context: context, 
-      backgroundColor: const Color(0xFF1E1E1E), 
-      isScrollControlled: true,
+      context: context, backgroundColor: const Color(0xFF1E1E1E), isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), 
       builder: (context) => StatefulBuilder(builder: (context, setModalState) {
         _scanSubscription = FlutterBluePlus.onScanResults.listen((results) { 
@@ -248,7 +274,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// --- HistoryScreen와 관련 로직은 사용자님의 원본 코드를 100% 유지합니다 ---
+// --- 기록 화면 (HistoryScreen) 원본 유지 ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

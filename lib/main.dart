@@ -42,7 +42,7 @@ class BikeFitApp extends StatelessWidget {
   }
 }
 
-// --- [스플래시 화면: 3초 대기 후 메인으로 이동] ---
+// --- [스플래시 화면: 3초 대기] ---
 class AssetSplashScreen extends StatefulWidget {
   const AssetSplashScreen({Key? key}) : super(key: key);
   @override State<AssetSplashScreen> createState() => _AssetSplashScreenState();
@@ -72,7 +72,7 @@ class _AssetSplashScreenState extends State<AssetSplashScreen> {
   }
 }
 
-// --- [메인 운동 화면: 진입 시 권한 요청] ---
+// --- [메인 운동 화면] ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -94,16 +94,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() { 
     super.initState(); 
     _loadInitialData(); 
-    // ✅ 메인 UI 진입 직후 권한 팝업 실행
+    // ✅ 메인 진입 직후 권한 요청 및 화면에 결과 노출
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
+  // ✅ 깃허브 빌드 후 모바일에서 바로 확인할 수 있도록 화면 알림(SnackBar) 추가
   Future<void> _requestPermissions() async {
-    await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.location,
-    ].request();
+    var scanStatus = await Permission.bluetoothScan.request();
+    var connectStatus = await Permission.bluetoothConnect.request();
+    var locationStatus = await Permission.location.request();
+
+    // 콘솔 로그 (기록용)
+    print("Bluetooth Scan 권한: $scanStatus");
+    print("Bluetooth Connect 권한: $connectStatus");
+
+    // ✅ 화면에 직접 띄우기 (모바일 빌드 확인용)
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("권한상태 - 스캔: $scanStatus / 연결: $connectStatus / 위치: $locationStatus"),
+          backgroundColor: Colors.blueAccent,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -124,7 +138,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // --- 이하 원본 UI 및 로직 유지 ---
+  // --- 기존 UI 로직 유지 ---
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
     _filteredResults.clear();
@@ -274,7 +288,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// --- 기록 화면 (HistoryScreen) 원본 유지 ---
+// --- [기록 화면 (HistoryScreen)] ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

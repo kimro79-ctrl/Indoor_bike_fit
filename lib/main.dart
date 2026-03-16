@@ -17,7 +17,6 @@ void main() async {
   runApp(const BikeFitApp());
 }
 
-// [기존 WorkoutRecord 클래스 동일]
 class WorkoutRecord {
   final String id, date;
   final int avgHR;
@@ -53,29 +52,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
+    // 앱 시작 시 권한 체크 및 요청
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
-  // ✅ 사용자님의 핵심 솔루션 반영: Permanently Denied 대응 로직
+  // ✅ 핵심: 권한 상태 체크 및 설정창 유도 로직
   Future<void> _requestPermissions() async {
-    var scan = await Permission.bluetoothScan.status;
-    var connect = await Permission.bluetoothConnect.status;
-    var loc = await Permission.location.status;
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ].request();
 
-    // "다시 묻지 않음" 또는 영구 거부 상태인 경우 설정창으로 이동
-    if (scan.isPermanentlyDenied || connect.isPermanentlyDenied || loc.isPermanentlyDenied) {
-      _showToast("권한이 영구 거부되었습니다. 설정에서 허용해주세요.");
+    // 하나라도 영구 거부된 경우 설정창 열기
+    if (statuses.values.any((status) => status.isPermanentlyDenied)) {
+      _showToast("필수 권한이 거부되었습니다. 설정에서 허용해주세요.");
       await openAppSettings();
-      return;
     }
-
-    // 순차적 권한 요청 (삼성 기기 최적화)
-    await Permission.location.request();
-    await Permission.bluetoothScan.request();
-    await Permission.bluetoothConnect.request();
   }
 
-  // [데이터 로드 및 워치 연결 로직]
   Future<void> _loadInitialData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -90,50 +85,94 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
-    await _requestPermissions(); // 스캔 시도 시 권한 상태 다시 체크
-    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) { _showToast("블루투스를 켜주세요."); return; }
     
+    // 스캔 전 권한 재확인
+    if (await Permission.bluetoothScan.isDenied || await Permission.location.isDenied) {
+      await _requestPermissions();
+    }
+
+    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
+      _showToast("블루투스를 켜주세요.");
+      return;
+    }
+
     _filteredResults.clear();
     await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15), androidUsesFineLocation: true);
     
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E1E), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), builder: (context) => StatefulBuilder(builder: (context, setModalState) {
-      _scanSubscription = FlutterBluePlus.onScanResults.listen((results) { 
-        if (mounted) {
-          setModalState(() { 
-            // ✅ 필터 제거: 이름 없는 기기도 모두 노출
-            _filteredResults = results; 
-          });
-        }
-      });
-      return Container(padding: const EdgeInsets.all(20), height: MediaQuery.of(context).size.height * 0.5, child: Column(children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 20), const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        Expanded(child: _filteredResults.isEmpty ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) {
-          final device = _filteredResults[index].device;
-          final String displayName = device.platformName.isEmpty ? "Unknown Device (${device.remoteId})" : device.platformName;
-          return ListTile(
-            leading: const Icon(Icons.watch, color: Colors.blueAccent), 
-            title: Text(displayName, style: const TextStyle(fontSize: 13, color: Colors.white70)), 
-            onTap: () { Navigator.pop(context); _connectToDevice(device); }
-          );
-        }))
-      ]));
-    })).whenComplete(() { FlutterBluePlus.stopScan(); _scanSubscription?.cancel(); });
+    showModalBottomSheet(
+      context: context, 
+      backgroundColor: const Color(0xFF1E1E1E), 
+      isScrollControlled: true, 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), 
+      builder: (context) => StatefulBuilder(builder: (context, setModalState) {
+        _scanSubscription = FlutterBluePlus.onScanResults.listen((results) { 
+          if (mounted) {
+            setModalState(() { 
+              // ✅ 필터 제거: 모든 BLE 신호를 다 보여줌
+              _filteredResults = results; 
+            });
+          }
+        });
+        return Container(padding: const EdgeInsets.all(20), height: MediaQuery.of(context).size.height * 0.5, child: Column(children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20), const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Expanded(child: _filteredResults.isEmpty ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) {
+            final device = _filteredResults[index].device;
+            final String name = device.platformName.isEmpty ? "Unknown Device (${device.remoteId})" : device.platformName;
+            return ListTile(
+              leading: const Icon(Icons.watch, color: Colors.blueAccent), 
+              title: Text(name, style: const TextStyle(fontSize: 13, color: Colors.white)), 
+              onTap: () { Navigator.pop(context); _connectToDevice(device); }
+            );
+          }))
+        ]));
+      })
+    ).whenComplete(() { FlutterBluePlus.stopScan(); _scanSubscription?.cancel(); });
   }
 
-  // [BLE 연결 및 데이터 처리 로직 동일]
-  void _connectToDevice(BluetoothDevice device) async { try { await device.connect(); _setupDevice(device); } catch (e) { _showToast("연결 실패"); } }
-  void _setupDevice(BluetoothDevice device) async { setState(() { _isWatchConnected = true; }); List<BluetoothService> services = await device.discoverServices(); for (var s in services) { if (s.uuid == Guid("180D")) { for (var c in s.characteristics) { if (c.uuid == Guid("2A37")) { await c.setNotifyValue(true); c.lastValueStream.listen(_decodeHR); } } } } }
+  void _connectToDevice(BluetoothDevice device) async {
+    try {
+      await device.connect();
+      _setupDevice(device);
+    } catch (e) {
+      _showToast("연결 실패: $e");
+    }
+  }
+
+  void _setupDevice(BluetoothDevice device) async {
+    setState(() { _isWatchConnected = true; });
+    List<BluetoothService> services = await device.discoverServices();
+    for (var s in services) {
+      if (s.uuid == Guid("180D")) {
+        for (var c in s.characteristics) {
+          if (c.uuid == Guid("2A37")) {
+            await c.setNotifyValue(true);
+            c.lastValueStream.listen(_decodeHR);
+          }
+        }
+      }
+    }
+  }
 
   void _decodeHR(List<int> data) {
     if (data.isEmpty) return;
     int hr = (data[0] & 0x01) == 0 ? data[1] : (data[2] << 8) | data[1];
     if (mounted && hr > 0) {
-      setState(() { _heartRate = hr; if (_isWorkingOut) { _timeCounter += 1; _hrSpots.add(FlSpot(_timeCounter, _heartRate.toDouble())); if (_hrSpots.length > 50) _hrSpots.removeAt(0); _avgHeartRate = (_hrSpots.map((e) => e.y).reduce((a, b) => a + b) / _hrSpots.length).toInt(); } });
+      setState(() { 
+        _heartRate = hr; 
+        if (_isWorkingOut) { 
+          _timeCounter += 1; 
+          _hrSpots.add(FlSpot(_timeCounter, _heartRate.toDouble())); 
+          if (_hrSpots.length > 50) _hrSpots.removeAt(0); 
+          _avgHeartRate = (_hrSpots.map((e) => e.y).reduce((a, b) => a + b) / _hrSpots.length).toInt(); 
+        } 
+      });
     }
   }
 
-  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); }
+  void _showToast(String msg) { 
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating)); 
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +197,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
-  // [나머지 UI 위젯 및 HistoryScreen 로직은 동일하게 유지]
   Widget _connectButton() => GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.greenAccent)), child: Text(_isWatchConnected ? "연결됨" : "워치 연결", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold))));
   Widget _chartArea() => SizedBox(height: 60, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: Colors.greenAccent, barWidth: 2, dotData: const FlDotData(show: false))])));
   Widget _goalBar(double progress) => GestureDetector(onTap: _showGoalSettings, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("CALORIE GOAL", style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)), Text("${_calories.toInt()} / ${_goalCalories.toInt()} kcal", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold))]), const SizedBox(height: 10), ClipRRect(borderRadius: BorderRadius.circular(5), child: SizedBox(height: 10, child: LinearProgressIndicator(value: progress, backgroundColor: Colors.white12, color: Colors.greenAccent)))])));
@@ -174,7 +212,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
-// [HistoryScreen 및 관련 위젯 로직 동일 - 생략 가능하나 완결성을 위해 유지]
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

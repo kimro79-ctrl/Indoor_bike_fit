@@ -17,6 +17,7 @@ void main() async {
   runApp(const BikeFitApp());
 }
 
+// [기존 데이터 모델 및 클래스]
 class WorkoutRecord {
   final String id, date;
   final int avgHR;
@@ -28,7 +29,11 @@ class WorkoutRecord {
 
 class BikeFitApp extends StatelessWidget {
   const BikeFitApp({Key? key}) : super(key: key);
-  @override Widget build(BuildContext context) => MaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: Colors.black), home: const WorkoutScreen());
+  @override Widget build(BuildContext context) => MaterialApp(
+    debugShowCheckedModeBanner: false, 
+    theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: Colors.black), 
+    home: const WorkoutScreen()
+  );
 }
 
 class WorkoutScreen extends StatefulWidget {
@@ -37,6 +42,7 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
+  // 상태 변수 (사용자님 원안 유지)
   int _heartRate = 0, _avgHeartRate = 0;
   double _calories = 0.0, _goalCalories = 300.0;
   Duration _duration = Duration.zero;
@@ -52,23 +58,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
-    // 앱 시작 시 권한 체크 및 요청
+    // ✅ 앱 실행 시 권한 체크 로직 추가
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
-  // ✅ 핵심: 권한 상태 체크 및 설정창 유도 로직
+  // ✅ 사용자님의 핵심 솔루션: 권한 체크 및 설정창 유도
   Future<void> _requestPermissions() async {
-    Map<Permission, PermissionStatus> statuses = await [
+    var scan = await Permission.bluetoothScan.status;
+    var connect = await Permission.bluetoothConnect.status;
+    var loc = await Permission.location.status;
+
+    if (scan.isPermanentlyDenied || connect.isPermanentlyDenied || loc.isPermanentlyDenied) {
+      _showToast("권한이 필요합니다. 설정에서 허용해주세요.");
+      await openAppSettings();
+      return;
+    }
+
+    await [
       Permission.location,
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
     ].request();
-
-    // 하나라도 영구 거부된 경우 설정창 열기
-    if (statuses.values.any((status) => status.isPermanentlyDenied)) {
-      _showToast("필수 권한이 거부되었습니다. 설정에서 허용해주세요.");
-      await openAppSettings();
-    }
   }
 
   Future<void> _loadInitialData() async {
@@ -83,97 +93,45 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
+  // ✅ 스캔 필터 제거 및 팝업 UI
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
+    await _requestPermissions();
+    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) { _showToast("블루투스를 켜주세요."); return; }
     
-    // 스캔 전 권한 재확인
-    if (await Permission.bluetoothScan.isDenied || await Permission.location.isDenied) {
-      await _requestPermissions();
-    }
-
-    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
-      _showToast("블루투스를 켜주세요.");
-      return;
-    }
-
     _filteredResults.clear();
     await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15), androidUsesFineLocation: true);
     
-    showModalBottomSheet(
-      context: context, 
-      backgroundColor: const Color(0xFF1E1E1E), 
-      isScrollControlled: true, 
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), 
-      builder: (context) => StatefulBuilder(builder: (context, setModalState) {
-        _scanSubscription = FlutterBluePlus.onScanResults.listen((results) { 
-          if (mounted) {
-            setModalState(() { 
-              // ✅ 필터 제거: 모든 BLE 신호를 다 보여줌
-              _filteredResults = results; 
-            });
-          }
-        });
-        return Container(padding: const EdgeInsets.all(20), height: MediaQuery.of(context).size.height * 0.5, child: Column(children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 20), const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Expanded(child: _filteredResults.isEmpty ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) {
-            final device = _filteredResults[index].device;
-            final String name = device.platformName.isEmpty ? "Unknown Device (${device.remoteId})" : device.platformName;
-            return ListTile(
-              leading: const Icon(Icons.watch, color: Colors.blueAccent), 
-              title: Text(name, style: const TextStyle(fontSize: 13, color: Colors.white)), 
-              onTap: () { Navigator.pop(context); _connectToDevice(device); }
-            );
-          }))
-        ]));
-      })
-    ).whenComplete(() { FlutterBluePlus.stopScan(); _scanSubscription?.cancel(); });
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E1E1E), isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), builder: (context) => StatefulBuilder(builder: (context, setModalState) {
+      _scanSubscription = FlutterBluePlus.onScanResults.listen((results) { 
+        if (mounted) setModalState(() { _filteredResults = results; }); 
+      });
+      return Container(padding: const EdgeInsets.all(20), height: MediaQuery.of(context).size.height * 0.5, child: Column(children: [
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 20), const Text("워치 검색", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Expanded(child: _filteredResults.isEmpty ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent)) : ListView.builder(itemCount: _filteredResults.length, itemBuilder: (context, index) {
+          final device = _filteredResults[index].device;
+          final String name = device.platformName.isEmpty ? "Unknown (${device.remoteId})" : device.platformName;
+          return ListTile(leading: const Icon(Icons.watch, color: Colors.blueAccent), title: Text(name), onTap: () { Navigator.pop(context); _connectToDevice(device); });
+        }))
+      ]));
+    })).whenComplete(() { FlutterBluePlus.stopScan(); _scanSubscription?.cancel(); });
   }
 
-  void _connectToDevice(BluetoothDevice device) async {
-    try {
-      await device.connect();
-      _setupDevice(device);
-    } catch (e) {
-      _showToast("연결 실패: $e");
-    }
-  }
-
-  void _setupDevice(BluetoothDevice device) async {
-    setState(() { _isWatchConnected = true; });
-    List<BluetoothService> services = await device.discoverServices();
-    for (var s in services) {
-      if (s.uuid == Guid("180D")) {
-        for (var c in s.characteristics) {
-          if (c.uuid == Guid("2A37")) {
-            await c.setNotifyValue(true);
-            c.lastValueStream.listen(_decodeHR);
-          }
-        }
-      }
-    }
-  }
+  void _connectToDevice(BluetoothDevice device) async { try { await device.connect(); _setupDevice(device); } catch (e) { _showToast("연결 실패"); } }
+  void _setupDevice(BluetoothDevice device) async { setState(() { _isWatchConnected = true; }); List<BluetoothService> services = await device.discoverServices(); for (var s in services) { if (s.uuid == Guid("180D")) { for (var c in s.characteristics) { if (c.uuid == Guid("2A37")) { await c.setNotifyValue(true); c.lastValueStream.listen(_decodeHR); } } } } }
 
   void _decodeHR(List<int> data) {
     if (data.isEmpty) return;
     int hr = (data[0] & 0x01) == 0 ? data[1] : (data[2] << 8) | data[1];
     if (mounted && hr > 0) {
-      setState(() { 
-        _heartRate = hr; 
-        if (_isWorkingOut) { 
-          _timeCounter += 1; 
-          _hrSpots.add(FlSpot(_timeCounter, _heartRate.toDouble())); 
-          if (_hrSpots.length > 50) _hrSpots.removeAt(0); 
-          _avgHeartRate = (_hrSpots.map((e) => e.y).reduce((a, b) => a + b) / _hrSpots.length).toInt(); 
-        } 
-      });
+      setState(() { _heartRate = hr; if (_isWorkingOut) { _timeCounter += 1; _hrSpots.add(FlSpot(_timeCounter, _heartRate.toDouble())); if (_hrSpots.length > 50) _hrSpots.removeAt(0); _avgHeartRate = (_hrSpots.map((e) => e.y).reduce((a, b) => a + b) / _hrSpots.length).toInt(); } });
     }
   }
 
-  void _showToast(String msg) { 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating)); 
-  }
+  void _showToast(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 1))); }
 
+  // 💎💎💎 [사용자님 원안 UI 100% 복구] 💎💎💎
   @override
   Widget build(BuildContext context) {
     double progress = (_calories / _goalCalories).clamp(0.0, 1.0);
@@ -182,7 +140,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         Positioned.fill(child: Opacity(opacity: 0.8, child: Image.asset('assets/background.png', fit: BoxFit.cover, errorBuilder: (c,e,s)=>Container(color: Colors.black)))),
         SafeArea(child: SingleChildScrollView(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: SizedBox(height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom, child: Column(children: [
           const SizedBox(height: 40), 
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Indoor bike fit', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)), _connectButton()]),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Indoor bike fit', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)), 
+            _connectButton()
+          ]),
           const SizedBox(height: 25), 
           _chartArea(), 
           const Spacer(),
@@ -198,7 +159,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _connectButton() => GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.greenAccent)), child: Text(_isWatchConnected ? "연결됨" : "워치 연결", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold))));
+  
   Widget _chartArea() => SizedBox(height: 60, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: Colors.greenAccent, barWidth: 2, dotData: const FlDotData(show: false))])));
+  
   Widget _goalBar(double progress) => GestureDetector(onTap: _showGoalSettings, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("CALORIE GOAL", style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.bold)), Text("${_calories.toInt()} / ${_goalCalories.toInt()} kcal", style: const TextStyle(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold))]), const SizedBox(height: 10), ClipRRect(borderRadius: BorderRadius.circular(5), child: SizedBox(height: 10, child: LinearProgressIndicator(value: progress, backgroundColor: Colors.white12, color: Colors.greenAccent)))])));
   
   void _showGoalSettings() {
@@ -207,11 +170,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Widget _dataBanner() => Container(padding: const EdgeInsets.symmetric(vertical: 20), decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [_statItem("심박수", "$_heartRate", Colors.greenAccent), _statItem("평균", "$_avgHeartRate", Colors.redAccent), _statItem("칼로리", _calories.toStringAsFixed(1), Colors.orangeAccent), _statItem("시간", "${_duration.inMinutes}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}", Colors.blueAccent)]));
+  
   Widget _statItem(String l, String v, Color c) => Column(children: [Text(l, style: const TextStyle(fontSize: 10, color: Colors.white60)), const SizedBox(height: 6), Text(v, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: c))]);
-  Widget _controlButtons() => Row(mainAxisAlignment: MainAxisAlignment.center, children: [_actionBtn(_isWorkingOut ? Icons.pause : Icons.play_arrow, "시작", () { setState(() { _isWorkingOut = !_isWorkingOut; if (_isWorkingOut) { _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) { setState(() { _duration += const Duration(seconds: 1); if (_heartRate >= 95) _calories += 0.15; }); }); } else { _workoutTimer?.cancel(); } }); }), const SizedBox(width: 15), _actionBtn(Icons.refresh, "리셋", () { if(!_isWorkingOut) { setState((){ _duration=Duration.zero; _calories=0.0; _avgHeartRate=0; _heartRate=0; _hrSpots=[]; _timeCounter=0; }); _showToast("리셋되었습니다."); } else { _showToast("운동 중엔 리셋 불가"); } }), const SizedBox(width: 15), _actionBtn(Icons.save, "저장", () async { if (_isWorkingOut) { _showToast("일시정지 후 저장하세요."); return; } if (_duration.inSeconds < 5) { _showToast("기록이 너무 짧습니다."); return; } final newRec = WorkoutRecord(DateTime.now().toString(), DateFormat('yyyy-MM-dd').format(DateTime.now()), _avgHeartRate, _calories, _duration); setState(() { _records.insert(0, newRec); }); final prefs = await SharedPreferences.getInstance(); await prefs.setString('workout_records', jsonEncode(_records.map((r) => r.toJson()).toList())); _showToast("저장 완료!"); }), const SizedBox(width: 15), _actionBtn(Icons.calendar_month, "기록", () async { await Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryScreen(records: _records, onSync: _loadInitialData))); _loadInitialData(); })]);
+
+  Widget _controlButtons() => Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+    _actionBtn(_isWorkingOut ? Icons.pause : Icons.play_arrow, "시작", () { setState(() { _isWorkingOut = !_isWorkingOut; if (_isWorkingOut) { _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) { setState(() { _duration += const Duration(seconds: 1); if (_heartRate >= 95) _calories += 0.15; }); }); } else { _workoutTimer?.cancel(); } }); }),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.refresh, "리셋", () { if(!_isWorkingOut) { setState((){ _duration=Duration.zero; _calories=0.0; _avgHeartRate=0; _heartRate=0; _hrSpots=[]; _timeCounter=0; }); } }),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.save, "저장", () async { if (_isWorkingOut) return; final newRec = WorkoutRecord(DateTime.now().toString(), DateFormat('yyyy-MM-dd').format(DateTime.now()), _avgHeartRate, _calories, _duration); setState(() { _records.insert(0, newRec); }); final prefs = await SharedPreferences.getInstance(); await prefs.setString('workout_records', jsonEncode(_records.map((r) => r.toJson()).toList())); _showToast("저장 완료!"); }),
+    const SizedBox(width: 15),
+    _actionBtn(Icons.calendar_month, "기록", () async { await Navigator.push(context, MaterialPageRoute(builder: (c) => HistoryScreen(records: _records, onSync: _loadInitialData))); _loadInitialData(); })
+  ]);
+
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
+// [기록 리포트 화면 - 사용자님 원안 유지]
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

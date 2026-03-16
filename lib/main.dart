@@ -42,6 +42,7 @@ class BikeFitApp extends StatelessWidget {
   }
 }
 
+// --- [스플래시 화면] ---
 class AssetSplashScreen extends StatefulWidget {
   const AssetSplashScreen({Key? key}) : super(key: key);
   @override State<AssetSplashScreen> createState() => _AssetSplashScreenState();
@@ -71,6 +72,7 @@ class _AssetSplashScreenState extends State<AssetSplashScreen> {
   }
 }
 
+// --- [메인 운동 화면] ---
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
   @override _WorkoutScreenState createState() => _WorkoutScreenState();
@@ -92,6 +94,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() { 
     super.initState(); 
     _loadInitialData(); 
+    // ✅ 사용자님 제안: 앱 진입 즉시 런타임 권한 요청 (강제 의식)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestBlePermissions());
+  }
+
+  // ✅ 안드로이드 12+ 대응 강제 권한 요청 함수
+  Future<void> _requestBlePermissions() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.locationWhenInUse,
+    ].request();
+    print("초기 권한 상태: $statuses");
   }
 
   Future<void> _loadInitialData() async {
@@ -112,11 +126,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // ✅ 강조하신 리스트 형태 권한 요청 로직
+  // ✅ 워치 연결 버튼 로직
   void _showDeviceScanPopup() async {
     if (_isWatchConnected) return;
 
-    // 런타임 권한 동시 요청
+    // 스캔 직전 다시 한번 확실히 체크 (사용자님 분석 반영)
     Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
@@ -277,6 +291,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _actionBtn(IconData i, String l, VoidCallback t) => Column(children: [GestureDetector(onTap: t, child: Container(width: 55, height: 55, decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white24)), child: Icon(i, color: Colors.white, size: 24))), const SizedBox(height: 6), Text(l, style: const TextStyle(fontSize: 10, color: Colors.white70))]);
 }
 
+// --- [기록 화면 (HistoryScreen)] ---
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
@@ -310,10 +325,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (maxCal < 200) maxCal = 200; 
 
     showModalBottomSheet(context: context, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), 
-      builder: (context) => Container(height: 350, padding: const EdgeInsets.fromLTRB(20, 15, 20, 20), child: Column(children: [
+      builder: (context) => Container(height: 350, padding: const EdgeInsets.all(20), child: Column(children: [
         Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 15),
-        Text("$title 분석", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text("$title 운동 효율 분석", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
         const SizedBox(height: 30),
         Expanded(child: BarChart(BarChartData(
           alignment: BarChartAlignment.spaceAround, maxY: maxCal * 1.4,
@@ -339,13 +354,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             locale: 'ko_KR', firstDay: DateTime(2024), lastDay: DateTime(2030), focusedDay: _focusedDay,
             selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
             onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
+            rowHeight: 40,
+            calendarStyle: const CalendarStyle(markerSize: 7, markerDecoration: BoxDecoration(color: Colors.orange, shape: BoxShape.circle)),
           ),
           ListView.builder(
             shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
             itemCount: dailyRecords.length,
             itemBuilder: (context, index) {
               final r = dailyRecords[index];
-              return ListTile(title: Text("${r.calories.toInt()} kcal 소모"), subtitle: Text("${r.duration.inMinutes}분"));
+              return ListTile(
+                leading: const Icon(Icons.directions_bike),
+                title: Text("${r.calories.toInt()} kcal 소모"),
+                subtitle: Text("${r.duration.inMinutes}분 / 평균 ${r.avgHR}bpm"),
+              );
             },
           ),
         ])),

@@ -77,15 +77,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _loadInitialData();
   }
 
-  Future<void> _requestPermissions() async {
-    if (!Platform.isAndroid) return;
-    await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.location,
-    ].request();
-  }
-
   Future<void> _loadInitialData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -105,33 +96,41 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
+  // ====== 🔵 스캔 오류 해결 로직 적용 부분 ======
   void _showDeviceScanPopup() async {
+    // 1. 블루투스 상태 확인
     final adapterState = await FlutterBluePlus.adapterState.first;
     if (adapterState != BluetoothAdapterState.on) {
-      _showToast("블루투스를 켜주세요");
+      _showToast("블루투스를 켜주세요.");
       return;
     }
 
+    // 2. 권한 확인 (사용자님이 수동으로 하셨어도 앱에서 다시 체크)
     if (!await Permission.bluetoothScan.isGranted || !await Permission.bluetoothConnect.isGranted) {
-      _showToast("근처 기기 권한 허용이 필요합니다.");
-      await _requestPermissions();
+      _showToast("권한이 부족합니다. 다시 시도해주세요.");
+      await [Permission.bluetoothScan, Permission.bluetoothConnect].request();
+      return;
     }
 
     _filteredResults.clear();
     
     try {
+      // ✅ 수정: 기존 스캔 확실히 중지 후 0.5초 대기
       await FlutterBluePlus.stopScan();
-      await Future.delayed(const Duration(milliseconds: 400)); // 스캔 안정화 딜레이
+      await Future.delayed(const Duration(milliseconds: 500));
       
+      // ✅ 수정: androidUsesFineLocation을 false로 설정 (근처 기기 권한 전용)
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 15),
+        timeout: const Duration(seconds: 10),
         androidUsesFineLocation: false, 
       );
     } catch (e) {
-      _showToast("스캔 시작 실패. 블루투스를 껐다 켜보세요.");
+      debugPrint("Scan Error: $e");
+      _showToast("스캔 엔진 오류. 블루투스를 껐다 켜보세요.");
       return;
     }
 
+    // 팝업 띄우기
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -156,7 +155,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: Column(children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            const Text("워치 검색 중", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text("워치 검색 중", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 10),
             Expanded(
               child: _filteredResults.isEmpty
                   ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
@@ -164,11 +164,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       itemCount: _filteredResults.length,
                       itemBuilder: (context, index) {
                         final device = _filteredResults[index].device;
-                        String name = device.platformName.isEmpty ? "BLE Device" : device.platformName;
+                        String name = device.platformName.isEmpty ? "Unknown Device" : device.platformName;
                         return ListTile(
                           leading: const Icon(Icons.watch, color: Colors.blueAccent),
-                          title: Text(name),
-                          subtitle: Text(device.remoteId.toString()),
+                          title: Text(name, style: const TextStyle(color: Colors.white)),
+                          subtitle: Text(device.remoteId.toString(), style: const TextStyle(color: Colors.white54)),
                           onTap: () {
                             Navigator.pop(context);
                             _connectToDevice(device);
@@ -405,7 +405,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ]);
 }
 
-// -------------------- HistoryScreen --------------------
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

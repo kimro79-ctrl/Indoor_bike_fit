@@ -35,6 +35,51 @@ jobs:
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get 
 
+      # ==================== 워치 연결 권한 강제 적용 ====================
+      - name: 📝 워치 연결 권한 강제 적용 (BLUETOOTH_SCAN fix)
+        run: |
+          cat <<'EOF' > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.overthebike.over_the_bike_fit">
+
+              <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+              <!-- 스마트워치 연결 핵심 권한 -->
+              <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+                               android:usesPermissionFlags="neverForLocation" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+              <!-- 구버전 호환 -->
+              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="28" />
+
+              <application
+                  android:label="Indoor bike fit"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher"
+                  android:usesCleartextTraffic="true">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+      # =================================================================
+
       - name: 🔑 Keystore 복원
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}

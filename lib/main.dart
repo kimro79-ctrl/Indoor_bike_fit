@@ -76,7 +76,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.initState();
     _loadInitialData();
 
-    Future.delayed(const Duration(milliseconds: 800), () {
+    // ✅ WidgetsBinding을 사용하여 UI가 완전히 붙은 후 권한 요청 (스캔 실패 방지)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestPermissions();
     });
   }
@@ -84,22 +85,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _requestPermissions() async {
     if (!Platform.isAndroid) return;
 
-    print("🔵 권한 요청 시작...");
+    // ✅ 안드로이드 14 및 삼성 폰 대응을 위한 통합 권한 요청
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
 
-    await Permission.bluetoothScan.request();
-    await Permission.bluetoothConnect.request();
-    await Permission.location.request();
-
-    final scan = await Permission.bluetoothScan.status;
-    final connect = await Permission.bluetoothConnect.status;
-
-    print("권한 상태 - Scan: $scan | Connect: $connect");
-
-    if (scan.isGranted && connect.isGranted) {
-      _showToast("권한 허용 완료! 이제 워치 연결이 가능합니다.");
-    } else {
-      _showToast("근처 기기 권한을 허용해주세요.");
-      await openAppSettings();
+    if (statuses[Permission.bluetoothScan]!.isDenied || 
+        statuses[Permission.bluetoothConnect]!.isDenied) {
+      _showToast("근처 기기 권한을 허용해야 스캔이 가능합니다.");
     }
   }
 
@@ -122,38 +117,29 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // ====== 🔴 워치 스캔 - 최종 강화 버전 ======
+  // ====== 🔴 워치 스캔 - 스캔 실패 오류 해결 버전 ======
   void _showDeviceScanPopup() async {
-    print("🔵 워치 연결 버튼 클릭됨");
-
+    // 블루투스 상태 확인
     final adapterState = await FlutterBluePlus.adapterState.first;
-    print("Bluetooth 상태: $adapterState");
-
     if (adapterState != BluetoothAdapterState.on) {
       _showToast("블루투스를 켜주세요");
       return;
     }
 
-    if (!await Permission.bluetoothScan.isGranted || 
-        !await Permission.bluetoothConnect.isGranted) {
-      _showToast("근처 기기 권한이 필요합니다.");
-      await openAppSettings();
-      return;
-    }
-
-    print("✅ 스캔 시작");
-
     _filteredResults.clear();
-    await FlutterBluePlus.stopScan();
-
+    
+    // ✅ 이전 스캔이 있다면 확실히 정지 후 실행
     try {
+      await FlutterBluePlus.stopScan();
+      // 스캔 시작 전 아주 짧은 지연을 주어 시스템 충돌 방지
+      await Future.delayed(const Duration(milliseconds: 200));
+      
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 12),
+        timeout: const Duration(seconds: 15),
         androidUsesFineLocation: true,
       );
     } catch (e) {
-      print("스캔 시작 오류: $e");
-      _showToast("스캔을 시작할 수 없습니다.");
+      _showToast("스캔 시작에 실패했습니다. 다시 시도해주세요.");
       return;
     }
 
@@ -189,9 +175,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
-            const Text("워치 검색 중...",
+            const Text("워치 검색 중",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
             Expanded(
               child: _filteredResults.isEmpty
                   ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
@@ -425,7 +410,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 dotData: const FlDotData(show: false))
           ])));
 
-  // ===== 시간 표시 오류 수정된 부분 =====
+  // ✅ [수정] 문자열 오류 해결: $ 기호와 {} 중괄호를 올바르게 수정
   Widget _dataBanner() => Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
@@ -438,7 +423,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _statItem("칼로리", _calories.toStringAsFixed(1), Colors.orangeAccent),
         _statItem(
             "시간",
-            "\( {_duration.inMinutes.toString().padLeft(2, '0')}: \){(_duration.inSeconds % 60).toString().padLeft(2, '0')}",
+            "${_duration.inMinutes.toString().padLeft(2, '0')}:${(_duration.inSeconds % 60).toString().padLeft(2, '0')}",
             Colors.blueAccent)
       ]));
 
@@ -535,7 +520,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ]);
 }
 
-// ==================== HistoryScreen (기존 그대로) ====================
+// ==================== HistoryScreen (이하 동일) ====================
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

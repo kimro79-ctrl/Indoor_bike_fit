@@ -82,27 +82,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // ✅ 강화된 권한 요청 로직 (Android 14 대응 + 설정 화면 자동 열기)
+  // ✅ 강화된 권한 요청 로직
   Future<void> _requestPermissions() async {
     if (!Platform.isAndroid) return;
 
-    print("🔵 권한 요청 시작...");  // 디버그용 로그
+    print("🔵 권한 요청 시작...");
 
-    // Bluetooth 권한 개별 요청
     final scanStatus = await Permission.bluetoothScan.request();
     final connectStatus = await Permission.bluetoothConnect.request();
-
-    // Android 12 미만에서는 Location도 필요할 수 있음
     final locationStatus = await Permission.location.request();
 
     print("Scan: $scanStatus | Connect: $connectStatus | Location: $locationStatus");
 
-    // 권한이 하나라도 허용되지 않으면 안내 + 설정 화면 열기
     if (!scanStatus.isGranted || !connectStatus.isGranted) {
       _showToast("워치 연결을 위해 '근처 기기' 권한이 필요합니다.\n설정에서 허용해주세요.");
-      await openAppSettings();   // 앱 권한 설정 화면 자동으로 열기
+      await openAppSettings();
     } else {
-      _showToast("권한 허용 완료! 이제 워치 연결이 가능합니다.");
+      _showToast("권한 허용 완료! 워치 연결이 가능합니다.");
     }
   }
 
@@ -125,22 +121,47 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // ====== 🔴 워치 스캔 ======
+  // ====== 🔴 워치 스캔 (디버그 강화 버전) ======
   void _showDeviceScanPopup() async {
-    // 버튼을 누를 때마다 권한을 다시 한 번 확인
-    await _requestPermissions();
+    print("🔵 워치 연결 버튼 클릭됨");
 
-    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
-      _showToast("블루투스를 켜주세요");
+    final adapterState = await FlutterBluePlus.adapterState.first;
+    print("Bluetooth Adapter State: $adapterState");
+
+    if (adapterState != BluetoothAdapterState.on) {
+      _showToast("블루투스를 먼저 켜주세요");
+      print("❌ 블루투스 OFF 상태");
       return;
     }
 
+    print("✅ 블루투스 ON 확인 완료");
+
+    final scanStatus = await Permission.bluetoothScan.status;
+    final connectStatus = await Permission.bluetoothConnect.status;
+    print("권한 상태 - Scan: $scanStatus | Connect: $connectStatus");
+
+    if (!scanStatus.isGranted || !connectStatus.isGranted) {
+      _showToast("근처 기기 권한이 필요합니다. 설정에서 확인해주세요.");
+      await openAppSettings();
+      return;
+    }
+
+    print("✅ 권한 모두 허용됨 → 스캔 시작");
+
     _filteredResults.clear();
     await FlutterBluePlus.stopScan();
-    await FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 15),
-      androidUsesFineLocation: true,
-    );
+
+    try {
+      await FlutterBluePlus.startScan(
+        timeout: const Duration(seconds: 15),
+        androidUsesFineLocation: true,
+      );
+      print("✅ 스캔 시작 성공");
+    } catch (e) {
+      print("❌ 스캔 시작 실패: $e");
+      _showToast("스캔 시작에 실패했습니다.");
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -188,8 +209,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             ? "BLE Device"
                             : device.platformName;
                         return ListTile(
-                          leading:
-                              const Icon(Icons.watch, color: Colors.blueAccent),
+                          leading: const Icon(Icons.watch, color: Colors.blueAccent),
                           title: Text(name),
                           subtitle: Text(device.remoteId.toString()),
                           onTap: () {
@@ -206,6 +226,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     ).whenComplete(() {
       FlutterBluePlus.stopScan();
       _scanSubscription?.cancel();
+      print("스캔 종료");
     });
   }
 

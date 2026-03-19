@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -47,7 +48,7 @@ class BikeFitApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
       ),
-      home: const WorkoutScreen(),
+      home: const WorkoutScreen(),   // 스플래시 제거
     );
   }
 }
@@ -115,6 +116,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
+  // ====== 워치 스캔 ======
   void _showDeviceScanPopup() async {
     final adapterState = await FlutterBluePlus.adapterState.first;
     if (adapterState != BluetoothAdapterState.on) {
@@ -138,7 +140,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       );
       _showToast("워치 검색을 시작합니다...");
     } catch (e) {
-      _showToast("스캔 시작에 실패했습니다. 블루투스를 다시 켜보세요.");
+      _showToast("스캔 시작에 실패했습니다.");
       return;
     }
 
@@ -510,6 +512,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ]);
 }
 
+// HistoryScreen (간단 버전 - 필요하면 이전 버전에서 전체 복사)
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
@@ -538,30 +541,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _weight = prefs.getDouble('last_weight') ?? 70.0;
     });
-  }
-
-  void _showWeightSetting() {
-    final controller = TextEditingController(text: _weight.toString());
-    showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text("체중 설정"),
-              content: TextField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(suffixText: "kg")),
-              actions: [
-                TextButton(
-                    onPressed: () async {
-                      final nw = double.tryParse(controller.text) ?? 70.0;
-                      (await SharedPreferences.getInstance())
-                          .setDouble('last_weight', nw);
-                      setState(() => _weight = nw);
-                      Navigator.pop(context);
-                    },
-                    child: const Text("저장"))
-              ],
-            ));
   }
 
   @override

@@ -44,11 +44,10 @@ class BikeFitApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-      ),
-      home: const WorkoutScreen(),   // 스플래시 제거
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: Colors.black),
+      home: const WorkoutScreen(),        // flutter_native_splash가 자동으로 스플래시 보여줌
     );
   }
 }
@@ -116,7 +115,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  // ====== 워치 스캔 ======
   void _showDeviceScanPopup() async {
     final adapterState = await FlutterBluePlus.adapterState.first;
     if (adapterState != BluetoothAdapterState.on) {
@@ -512,7 +510,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ]);
 }
 
-// HistoryScreen (간단 버전 - 필요하면 이전 버전에서 전체 복사)
+// HistoryScreen (간단 버전)
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;

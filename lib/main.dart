@@ -52,6 +52,7 @@ class BikeFitApp extends StatelessWidget {
   }
 }
 
+// ====================== 메인 화면 ======================
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
 
@@ -510,7 +511,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ]);
 }
 
-// HistoryScreen은 간단히 유지 (필요하면 이전 버전에서 전체 복사)
+// ====================== 기록 화면 ======================
 class HistoryScreen extends StatefulWidget {
   final List<WorkoutRecord> records;
   final VoidCallback onSync;
@@ -581,7 +582,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             elevation: 0),
         body: SingleChildScrollView(
             child: Column(children: [
-          // 체중 설정, 캘린더, 리스트 등은 필요에 따라 추가하세요
+          // 체중, 캘린더 등은 필요에 따라 추가 가능
           const SizedBox(height: 20),
         ])),
       ),

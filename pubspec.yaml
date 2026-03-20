@@ -19,7 +19,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.14.3          # ← 여기 버전 업그레이드 (blank icon 이슈 패치)
+  flutter_launcher_icons: ^0.13.1         # ← 여기 버전 업그레이드 (blank icon 이슈 패치)
   flutter_native_splash: ^2.4.0
 
 flutter_launcher_icons:

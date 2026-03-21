@@ -34,7 +34,7 @@ jobs:
           flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get 
 
-      # 1. [핵심 추가] 이 코드가 없으면 아이콘 파일이 생성되지 않습니다.
+      # ✨ [추가] 아이콘 파일 물리적 생성 (ios: false 설정으로 에러 방지됨)
       - name: 🎨 앱 아이콘 자동 생성 (flutter_launcher_icons)
         run: |
           flutter pub run flutter_launcher_icons
@@ -61,7 +61,6 @@ jobs:
               <application
                   android:label="Indoor bike fit"
                   android:name="${applicationName}"
-                  # 2. [수정] 아이콘 파일 이름을 설정값에 맞게 변경했습니다.
                   android:icon="@mipmap/launcher_icon"
                   android:roundIcon="@mipmap/launcher_icon_round"
                   android:usesCleartextTraffic="true">
@@ -126,15 +125,6 @@ jobs:
           android {
               namespace "com.overthebike.over_the_bike_fit"
               compileSdk 35 
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              } 
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              } 
 
               defaultConfig {
                   applicationId "com.overthebike.over_the_bike_fit"

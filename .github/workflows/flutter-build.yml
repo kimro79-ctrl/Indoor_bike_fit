@@ -1,4 +1,4 @@
-name: BikeFit AAB Build - Asset Icon Victory
+name: BikeFit AAB Build - V2 Embedding & Icon Victory
 
 on:
   workflow_dispatch: 
@@ -26,19 +26,19 @@ jobs:
           NEW_CODE=$((BASE_CODE + ${{ github.run_number }}))
           echo "FINAL_VERSION_CODE=$NEW_CODE" >> $GITHUB_ENV
 
-      - name: 🧹 [초강력 클린] 및 초기화
+      - name: 🧹 [초강력 클린] 및 패키지 로드
         run: |
           flutter clean
           flutter pub get 
 
-      # ✨ [핵심 수정] 빌드 서버가 assets 폴더를 확실하게 인식하도록 캐시를 날리고 다시 로드합니다.
-      - name: 🎨 앱 아이콘 생성 (Assets 참조 강제)
+      - name: 🎨 앱 아이콘 생성 (Assets 참조)
         run: |
-          # 아이콘 생성 도구를 실행합니다. pubspec.yaml의 assets/icon/app_icon.png 설정을 따릅니다.
+          # pubspec.yaml의 에셋 경로를 참조하여 아이콘을 생성합니다.
           flutter pub run flutter_launcher_icons
 
-      - name: 📝 Android 설정 적용 (아이콘 연결 고정)
+      - name: 📝 AndroidManifest & v2 Embedding 강제 적용
         run: |
+          # v1 embedding 에러 해결을 위해 v2 설정을 강제로 박습니다.
           cat <<'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.overthebike.over_the_bike_fit">
@@ -55,7 +55,11 @@ jobs:
                   android:name="${applicationName}"
                   android:icon="@mipmap/launcher_icon"
                   android:usesCleartextTraffic="true">
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
+                  
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -86,8 +90,7 @@ jobs:
           storeFile=release.jks
           EOF 
 
-      # ✨ [핵심 수정] 자바 버전 충돌 해결을 위해 jvmTarget을 17로 강제 주입했습니다.
-      - name: 📑 build.gradle 직접 작성 (자바 버전 고정 반영)
+      - name: 📑 build.gradle 작성 (Java 17 고정)
         run: |
           cat <<EOF_GRADLE > android/app/build.gradle
           plugins {

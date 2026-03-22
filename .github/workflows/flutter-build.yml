@@ -15,146 +15,67 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1 
 
-      - name: 🔢 빌드 번호 계산 (Base 1706 + Run Number)
-        id: version_logic
+      - name: 🔢 빌드 번호 계산
         run: |
           BASE_CODE=1706
           NEW_CODE=$((BASE_CODE + ${{ github.run_number }}))
           echo "FINAL_VERSION_CODE=$NEW_CODE" >> $GITHUB_ENV
 
-      # ✅ 🔥 android 삭제 제거 (아이콘 유지 핵심)
-      - name: 🧹 클린 및 의존성 설치
+      # ❌ flutter_launcher_icons 제거 (자동생성 금지)
+      # ❌ 아이콘 덮어쓰기 문제 방지
+
+      - name: 🧹 클린
         run: |
           flutter clean
-          flutter pub get 
+          flutter pub get
 
-      # ❌ flutter_launcher_icons 제거됨 (아이콘 덮어쓰기 방지)
-
-      - name: 📝 Android 설정 적용 (아이콘 연결)
+      # 🔥 여기서 아이콘 강제 덮어쓰기
+      - name: 🎯 아이콘 강제 적용
         run: |
-          cat <<'EOF' > android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp assets/icon/app_icon.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+      - name: 📝 AndroidManifest 고정
+        run: |
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="com.overthebike.over_the_bike_fit">
 
-              <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-
-              <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
-              <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
-              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="28" />
-
               <application
                   android:label="Indoor bike fit"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher"
-                  android:usesCleartextTraffic="true">
-
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
+                  android:icon="@mipmap/ic_launcher">
 
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-
+                      android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
-
                   </activity>
+
               </application>
           </manifest>
           EOF
 
-      - name: 🔑 Keystore 복원
-        env:
-          KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
-        run: |
-          mkdir -p android/app
-          echo "$KEY_DATA" | tr -d '\n ' | base64 --decode > android/app/release.jks 
+      - name: 🏗️ AAB 빌드
+        run: flutter build appbundle --release
 
-          cat <<EOF > android/app/key.properties
-          storePassword=Sodomaki80
-          keyPassword=Sodomaki80
-          keyAlias=fresh-upload-key
-          storeFile=release.jks
-          EOF 
-
-      - name: 📑 build.gradle 직접 작성 (Java 17 강제 설정)
-        run: |
-          cat <<EOF_GRADLE > android/app/build.gradle
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          } 
-
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = project.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          } 
-
-          android {
-              namespace "com.overthebike.over_the_bike_fit"
-              compileSdk 35 
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              } 
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              } 
-
-              defaultConfig {
-                  applicationId "com.overthebike.over_the_bike_fit"
-                  minSdk 21
-                  targetSdk 35
-                  versionCode ${FINAL_VERSION_CODE}
-                  versionName "1.0.1"
-              } 
-
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
-                      storePassword keystoreProperties['storePassword']
-                  }
-              } 
-
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-              }
-          } 
-
-          flutter {
-              source '../..'
-          }
-          EOF_GRADLE
-
-      - name: 🏗️ AAB 빌드 실행
-        run: flutter build appbundle --release --no-tree-shake-icons 
-
-      - name: 📦 수정된 AAB 파일 업로드
+      - name: 📦 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_v${{ env.FINAL_VERSION_CODE }}_AAB
+          name: BikeFit_AAB
           path: build/app/outputs/bundle/release/app-release.aab

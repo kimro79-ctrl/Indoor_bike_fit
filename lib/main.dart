@@ -37,10 +37,56 @@ class BikeFitApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: Colors.black),
-      home: const WorkoutScreen(),
+      // 시작 화면을 SplashScreen으로 변경
+      home: const SplashScreen(),
     );
   }
-} 
+}
+
+// ✅ 스플래시 화면 클래스 추가 (3초 유지)
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({Key? key}) : super(key: key);
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 3초 후 메인 운동 화면으로 이동
+    Timer(const Duration(seconds: 3), () {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const WorkoutScreen()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset('assets/background.png', fit: BoxFit.cover, 
+              errorBuilder: (c, e, s) => Container(color: Colors.black)),
+          ),
+          const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Indoor bike fit', 
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2.0)),
+                SizedBox(height: 10),
+                CircularProgressIndicator(color: Colors.greenAccent),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({Key? key}) : super(key: key);
@@ -255,7 +301,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _connectButton() => GestureDetector(onTap: _showDeviceScanPopup, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.greenAccent)), child: Text(_isWatchConnected ? "연결됨" : "워치 연결", style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold))));
   Widget _chartArea() => SizedBox(height: 60, child: LineChart(LineChartData(gridData: const FlGridData(show: false), titlesData: const FlTitlesData(show: false), borderData: FlBorderData(show: false), lineBarsData: [LineChartBarData(spots: _hrSpots.isEmpty ? [const FlSpot(0, 0)] : _hrSpots, isCurved: true, color: Colors.greenAccent, barWidth: 2, dotData: const FlDotData(show: false))])));
   
-  // ✅ 오직 이 부분의 문자열 보간 오류만 수정되었습니다.
   Widget _dataBanner() {
     String minutes = _duration.inMinutes.toString();
     String seconds = (_duration.inSeconds % 60).toString().padLeft(2, '0');
@@ -279,7 +324,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _isWorkingOut = !_isWorkingOut; 
         if (_isWorkingOut) { 
           _workoutTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-            setState(() { _duration += const Duration(seconds: 1); if (_heartRate >= 80) { _calories += 0.15; } }); 
+            setState(() { 
+              _duration += const Duration(seconds: 1); 
+              // ✅ 칼로리 누적 조건을 심박수 90 이상으로 수정
+              if (_heartRate >= 90) { 
+                _calories += 0.15; 
+              } 
+            }); 
           }); 
         } else { _workoutTimer?.cancel(); } 
       }); 

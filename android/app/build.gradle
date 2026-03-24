@@ -12,7 +12,11 @@ plugins {
 
 android {
     namespace "com.overthebike.over_the_bike_fit"
+    // 최신 SDK 대응
     compileSdk 35
+
+    // ✅ 16KB 페이지 지원을 위해 NDK 버전 명시 (24.0.7508024 이상 필요)
+    ndkVersion "25.1.8937393"
 
     defaultConfig {
         applicationId "com.overthebike.over_the_bike_fit"
@@ -20,6 +24,16 @@ android {
         targetSdk 35
         versionCode 1706
         versionName "1.0.1"
+
+        // ✅ 16KB 메모리 페이지 지원을 위한 빌드 플래그 추가
+        externalNativeBuild {
+            cmake {
+                cppFlags "-Wl,-z,max-page-size=16384"
+            }
+            ndkBuild {
+                arguments "APP_LDFLAGS+=-Wl,-z,max-page-size=16384"
+            }
+        }
     }
 
     signingConfigs {
@@ -33,7 +47,6 @@ android {
 
     buildTypes {
         release {
-            // 이 줄이 핵심입니다. 위에서 만든 release 설정을 적용합니다.
             signingConfig signingConfigs.release
             
             minifyEnabled true

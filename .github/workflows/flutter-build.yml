@@ -1,4 +1,4 @@
-name: BikeFit FINAL STABLE BUILD
+name: BikeFit FINAL FIXED BUILD
 
 on:
   workflow_dispatch:
@@ -8,12 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 체크아웃
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      # 2. Java + Flutter
-      - name: ☕ Setup Java (JDK 17)
+      - name: ☕ Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,26 +22,15 @@ jobs:
         with:
           flutter-version: 3.27.1
 
-      # 3. 버전코드 자동 증가
-      - name: 🔢 Version Code
-        run: |
-          BASE=1706
-          CODE=$((BASE + ${{ github.run_number }}))
-          echo "VERSION_CODE=$CODE" >> $GITHUB_ENV
-
-      # 4. 🔥 완전 초기화 (핵심)
-      - name: 🧹 Full Clean Reset
+      # 🔥 중요: 캐시만 삭제 (android 유지)
+      - name: 🧹 Clean
         run: |
           flutter clean
-          rm -rf android
-          flutter create . --platforms android --org com.overthebike --project-name over_the_bike_fit
           flutter pub get
 
-      # 5. 🔥 V2 강제 (이게 핵심 해결)
-      - name: 🔥 Force V2 Embedding
+      # 🔥 V2 강제 (기존 덮어쓰기)
+      - name: 🔥 Fix V2 Embedding
         run: |
-          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
-
           cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
           package com.overthebike.over_the_bike_fit
 
@@ -53,42 +40,13 @@ jobs:
           }
           EOF
 
-      # 6. Manifest 완전 재작성 (V1 차단)
-      - name: 📝 AndroidManifest Fix
+      # 🔥 Manifest 보정
+      - name: 📝 Fix Manifest
         run: |
-          cat <<'EOF' > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.overthebike.over_the_bike_fit">
+          sed -i 's/android:name="io.flutter.app.FlutterApplication"//g' android/app/src/main/AndroidManifest.xml || true
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"/g' android/app/src/main/AndroidManifest.xml || true
 
-              <uses-permission android:name="android.permission.INTERNET"/>
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-
-              <application
-                  android:label="Indoor bike fit"
-                  android:icon="@mipmap/ic_launcher">
-
-                  <meta-data android:name="flutterEmbedding" android:value="2"/>
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:launchMode="singleTop"
-                      android:theme="@style/LaunchTheme"
-                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                      android:hardwareAccelerated="true"
-                      android:windowSoftInputMode="adjustResize">
-
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-      # 7. keystore
+      # 🔑 keystore
       - name: 🔑 Restore Keystore
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
@@ -103,73 +61,22 @@ jobs:
           storeFile=release.jks
           EOF
 
-      # 8. build.gradle 완전 고정
-      - name: 📑 build.gradle Fix
+      # 🔥 gradle.properties 안정화
+      - name: ⚙️ Fix Gradle Properties
         run: |
-          cat <<EOF > android/app/build.gradle
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          }
-
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = project.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
-
-          android {
-              namespace "com.overthebike.over_the_bike_fit"
-              compileSdk 35
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-
-              defaultConfig {
-                  applicationId "com.overthebike.over_the_bike_fit"
-                  minSdk 21
-                  targetSdk 35
-                  versionCode ${VERSION_CODE}
-                  versionName "1.0.1"
-              }
-
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-              }
-          }
-
-          flutter {
-              source '../..'
-          }
+          cat <<EOF > android/gradle.properties
+          org.gradle.jvmargs=-Xmx4g
+          android.useAndroidX=true
+          android.enableJetifier=true
+          kotlin.code.style=official
           EOF
 
-      # 9. 🔥 빌드 (핵심 옵션 추가)
+      # 🔥 핵심: build
       - name: 🏗 Build AAB
-        run: flutter build appbundle --release --no-tree-shake-icons --verbose
+        run: flutter build appbundle --release --no-tree-shake-icons
 
-      # 10. 업로드
-      - name: 📦 Upload AAB
+      - name: 📦 Upload
         uses: actions/upload-artifact@v4
         with:
-          name: BikeFit_v${{ env.VERSION_CODE }}
+          name: BikeFit_AAB
           path: build/app/outputs/bundle/release/app-release.aab

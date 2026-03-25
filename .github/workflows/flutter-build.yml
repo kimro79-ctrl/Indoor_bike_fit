@@ -1,4 +1,4 @@
-name: BikeFit Final Stable Build
+name: BikeFit FINAL STABLE BUILD
 
 on:
   workflow_dispatch:
@@ -8,40 +8,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 코드 체크아웃
+      # 📥 코드
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: ☕ Java 설정 (JDK 17)
+      # ☕ Java
+      - name: ☕ Setup Java (JDK 17)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: 🚀 Flutter 설정
+      # 🚀 Flutter
+      - name: 🚀 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.27.1
 
-      # 🔥 핵심 수정 1: 캐시 완전 초기화
-      - name: 🧨 Pub 캐시 제거
+      # 💣 캐시 완전 제거 (latlong2 문제 차단)
+      - name: 🧨 Delete Pub Cache
         run: rm -rf ~/.pub-cache
 
-      # 🔥 핵심 수정 2: 정상적인 초기화
-      - name: 🧹 Clean
+      # 🧹 클린
+      - name: 🧹 Flutter Clean
         run: flutter clean
 
-      - name: 📦 의존성 설치 (핵심)
+      # 📦 의존성 (핵심)
+      - name: 📦 Pub Get
         run: flutter pub get
 
-      - name: 🔍 패키지 검증
+      # 🔍 검증 (디버깅용)
+      - name: 🔍 Dependency Check
         run: flutter pub deps
 
-      # 🔢 버전 자동 증가
-      - name: 🔢 빌드 번호 생성
+      # 🔢 버전 코드
+      - name: 🔢 Version Code
         run: echo "FINAL_VERSION_CODE=$((1706 + $GITHUB_RUN_NUMBER))" >> $GITHUB_ENV
 
-      # 🔑 Keystore 복원
-      - name: 🔑 Keystore 복원
+      # 🔥 V2 강제 적용 (Android V1 완전 차단)
+      - name: 🔥 Force V2 MainActivity
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/overthebike/over_the_bike_fit
+          cat <<EOF > android/app/src/main/kotlin/com/overthebike/over_the_bike_fit/MainActivity.kt
+          package com.overthebike.over_the_bike_fit
+
+          import io.flutter.embedding.android.FlutterActivity
+
+          class MainActivity: FlutterActivity() {}
+          EOF
+
+      # 🔑 Keystore
+      - name: 🔑 Restore Keystore
         env:
           KEY_DATA: ${{ secrets.RELEASE_KEYSTORE }}
         run: |
@@ -56,11 +73,11 @@ jobs:
           EOF
 
       # 🏗️ 빌드
-      - name: 🏗️ AAB 빌드
-        run: flutter build appbundle --release
+      - name: 🏗️ Build AAB
+        run: flutter build appbundle --release --no-tree-shake-icons
 
       # 📦 업로드
-      - name: 📦 AAB 업로드
+      - name: 📦 Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: BikeFit_v${{ env.FINAL_VERSION_CODE }}_AAB
